@@ -11,13 +11,17 @@ import (
 )
 
 type PaymentService struct {
-	ykClient yookassa.Client
+	ykClient *yookassa.Client
 	payments repository.Payments
 	audit    repository.Audit
 }
 
-func NewPaymentService(payments repository.Payments, audit repository.Audit) *PaymentService {
-	return &PaymentService{payments: payments, audit: audit}
+func NewPaymentService(payments repository.Payments, audit repository.Audit, ykClient *yookassa.Client) *PaymentService {
+	return &PaymentService{payments: payments, audit: audit, ykClient: ykClient}
+}
+
+func (s *PaymentService) GetYkClient() *yookassa.Client {
+	return s.ykClient
 }
 func (s *PaymentService) InitiatePayment(
 	userID int64,

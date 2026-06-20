@@ -7,7 +7,6 @@ import (
 	"vpnbottg/internal/service"
 	"vpnbottg/internal/telegram/fsm"
 	"vpnbottg/internal/telegram/handlers"
-	"vpnbottg/internal/telegram/keyboard"
 
 	tele "gopkg.in/telebot.v3"
 )
@@ -86,11 +85,11 @@ func Buy(paymentServ *service.PaymentService) tele.HandlerFunc {
 		return handlers.Payment(c)
 	}
 }
-func CheckPayment(yk *yookassa.Client) tele.HandlerFunc {
+func CheckPayment(yk *service.PaymentService) tele.HandlerFunc {
 	return func(c tele.Context) error {
 		paymentID := c.Data()
 
-		payment, err := yk.FetchPayment(paymentID)
+		payment, err := yk.GetYkClient().FetchPayment(paymentID)
 		if err != nil {
 			return c.Respond(&tele.CallbackResponse{Text: "Ошибка проверки"})
 		}

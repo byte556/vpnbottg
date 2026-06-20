@@ -1,7 +1,6 @@
 package callbacks
 
 import (
-	"vpnbottg/internal/client/yookassa"
 	"vpnbottg/internal/service"
 	"vpnbottg/internal/telegram/keyboard"
 

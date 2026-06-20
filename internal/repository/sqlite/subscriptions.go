@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"vpnbottg/internal/models"
+	"vpnbottg/internal/repository"
 )
 
 func (d *DB) CreateSubscription(ctx context.Context, s *models.Subscription) (int64, error) {
@@ -34,7 +35,7 @@ func (d *DB) GetActiveSubscription(ctx context.Context, userID int64) (*models.S
 	var s models.Subscription
 	if err := row.Scan(&s.ID, &s.UserID, &s.XUIEmailDirect, &s.XUIEmailRelay, &s.Bypass, &s.TrafficGB, &s.StartedAt, &s.ExpiresAt, &s.CreatedAt); err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return nil, ErrNotFound
+			return nil, repository.ErrNotFound
 		}
 		return nil, fmt.Errorf("getActiveSubscription: %w", err)
 	}

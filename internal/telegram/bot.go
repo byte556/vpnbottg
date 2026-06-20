@@ -2,8 +2,8 @@ package telegram
 
 import (
 	"time"
-	"vpnbottg/internal/client/yookassa"
 	"vpnbottg/internal/config"
+	"vpnbottg/internal/service"
 	"vpnbottg/internal/telegram/callbacks"
 	"vpnbottg/internal/telegram/commands"
 	"vpnbottg/internal/telegram/handlers"
@@ -18,8 +18,8 @@ func NewBot() (*tele.Bot, error) {
 	})
 }
 
-func Run(bot *tele.Bot, yk *yookassa.Client) {
-	callbacks.Register(bot, yk)
+func Run(bot *tele.Bot, payment *service.PaymentService) {
+	callbacks.Register(bot, payment)
 	handlers.Register(bot)
 	commands.Register(bot)
 	bot.Start()
