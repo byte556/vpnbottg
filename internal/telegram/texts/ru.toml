@@ -1,0 +1,36 @@
+[start]
+  text = "Привет 👋"
+
+[start.buttons]
+  buy = "🚀 Купить"
+  help = "❓ Помощь"
+  invite = "👥 Пригласить друга"
+
+
+[constructor]
+text = """
+⚙️ Конструктор тарифа
+
+📦 Трафик: {{.PlanGB}} GB
+📱 Устройства: {{.Devices}}
+📅 Месяцев: {{.Months}}
+💰 Цена: {{.Price}} ₽
+
+Выбери параметры ниже 👇
+"""
+[constructor.buttons]
+gb_dec = "➖ 1GB"
+gb_inc = "➕ 1GB"
+
+dev_dec = "➖ Device"
+dev_inc = "➕ Device"
+
+months_dec = "➖ Месяц"
+months_inc = "➕ Месяц"
+
+
+buy = "💳 Оплатить"
+
+
+[create_payment]
+error = "❌ Ошибка при создании платежа, попробуй позже"
