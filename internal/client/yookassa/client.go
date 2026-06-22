@@ -141,6 +141,36 @@ func (c *Client) CreatePayment(req CreatePaymentReq) (*Payment, error) {
 	return &p, nil
 }
 
+// Refund — ответ YK на создание возврата.
+type Refund struct {
+	ID        string `json:"id"`
+	Status    string `json:"status"` // pending|succeeded|canceled
+	PaymentID string `json:"payment_id"`
+}
+
+// CreateRefund — POST /v3/refunds, полный возврат суммы платежа.
+func (c *Client) CreateRefund(paymentID string, amountRub int64) (*Refund, error) {
+	if !c.Enabled() {
+		return nil, fmt.Errorf("yookassa not configured")
+	}
+	body := map[string]any{
+		"payment_id": paymentID,
+		"amount": map[string]any{
+			"value":    fmt.Sprintf("%d.00", amountRub),
+			"currency": "RUB",
+		},
+	}
+	raw, err := c.do(http.MethodPost, "https://api.yookassa.ru/v3/refunds", body, randomHex(16))
+	if err != nil {
+		return nil, err
+	}
+	var ref Refund
+	if err := json.Unmarshal(raw, &ref); err != nil {
+		return nil, fmt.Errorf("decode refund: %w; body: %s", err, raw)
+	}
+	return &ref, nil
+}
+
 // FetchPayment — GET /payments/{id}
 func (c *Client) FetchPayment(providerID string) (*Payment, error) {
 	if !c.Enabled() {

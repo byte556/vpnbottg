@@ -7,6 +7,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.45
 	github.com/pelletier/go-toml v1.9.5
 	github.com/rs/zerolog v1.35.1
+	github.com/skip2/go-qrcode v0.0.0-20200617195104-da1b6568686e
 	gopkg.in/telebot.v3 v3.3.8
 	gopkg.in/yaml.v3 v3.0.1
 )

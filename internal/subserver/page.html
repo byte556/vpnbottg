@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#0b1020">
+<meta name="robots" content="noindex, nofollow">
+<title>Твой VPN готов 🔒</title>
+<style>
+  :root{
+    --bg:#0b1020;
+    --card:#141b33;
+    --card-2:#1b2440;
+    --txt:#eef2ff;
+    --muted:#9aa6c7;
+    --line:#28335a;
+    --accent:#5b8cff;
+    --accent-2:#22d3ee;
+    --ok:#34d399;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{
+    min-height:100vh;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:var(--txt);
+    background:
+      radial-gradient(1200px 600px at 50% -10%, rgba(91,140,255,.25), transparent 60%),
+      radial-gradient(900px 500px at 100% 0%, rgba(34,211,238,.16), transparent 55%),
+      var(--bg);
+    display:flex;align-items:center;justify-content:center;
+    padding:24px 16px calc(24px + env(safe-area-inset-bottom));
+  }
+  .card{
+    width:100%;max-width:420px;
+    background:linear-gradient(180deg, var(--card), var(--card-2));
+    border:1px solid var(--line);
+    border-radius:24px;
+    padding:28px 24px 24px;
+    box-shadow:0 30px 80px rgba(2,6,23,.6);
+    text-align:center;
+  }
+  .brand{display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px}
+  .logo{
+    width:44px;height:44px;flex:none;
+    filter:drop-shadow(0 6px 16px rgba(91,140,255,.45));
+  }
+  .brand-name{font-size:20px;font-weight:800;letter-spacing:.3px}
+  .brand-name .dot{color:var(--accent-2)}
+  h1{font-size:24px;line-height:1.25;margin:14px 0 6px;font-weight:800}
+  .sub{color:var(--muted);font-size:14px;margin:0 0 20px;line-height:1.5}
+  .qr-wrap{
+    background:#fff;border-radius:18px;padding:14px;
+    width:232px;max-width:80%;margin:0 auto 12px;
+    box-shadow:0 12px 30px rgba(2,6,23,.45);
+  }
+  .qr-wrap img{display:block;width:100%;height:auto;border-radius:8px}
+  .qr-hint{color:var(--muted);font-size:13px;margin:0 0 22px}
+  .btn{
+    display:flex;align-items:center;justify-content:center;gap:10px;
+    width:100%;padding:16px 18px;border-radius:16px;border:0;
+    font-size:16px;font-weight:700;cursor:pointer;text-decoration:none;
+    transition:transform .06s ease, filter .2s ease;
+  }
+  .btn:active{transform:translateY(1px)}
+  .btn + .btn{margin-top:10px}
+  .btn-primary{
+    color:#06122b;
+    background:linear-gradient(135deg,var(--accent-2),var(--accent));
+    box-shadow:0 14px 30px rgba(91,140,255,.35);
+  }
+  .btn-primary:hover{filter:brightness(1.05)}
+  .btn-secondary{
+    color:var(--txt);
+    background:rgba(2,6,23,.45);
+    border:1px solid var(--line);
+  }
+  .btn-secondary:hover{filter:brightness(1.1)}
+  .status{
+    background:rgba(2,6,23,.4);border:1px solid var(--line);
+    border-radius:14px;padding:12px 14px;margin:0 0 20px;text-align:left;
+  }
+  .status-row{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:14px}
+  .status-row + .status-row{margin-top:8px}
+  .status-row span{color:var(--muted)}
+  .status-row b{font-weight:700}
+  .status .ok{color:var(--ok)}
+  .status .off{color:#fb7185}
+  .bar{margin-top:10px;height:7px;border-radius:99px;background:rgba(255,255,255,.08);overflow:hidden}
+  .bar i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--accent-2),var(--accent))}
+  .field-label{display:block;text-align:left;color:var(--muted);font-size:13px;margin:22px 4px 8px}
+  .field{
+    display:flex;align-items:center;gap:8px;
+    background:rgba(2,6,23,.45);border:1px solid var(--line);
+    border-radius:14px;padding:10px 10px 10px 14px;
+  }
+  .field code{
+    flex:1;min-width:0;text-align:left;
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:13px;color:#cfd9ff;
+    overflow:hidden;text-overflow:ellipsis;white-space:nowrap;
+  }
+  .copy{
+    flex:none;border:0;cursor:pointer;border-radius:10px;
+    background:var(--accent);color:#06122b;font-weight:700;font-size:13px;
+    padding:9px 14px;transition:background .2s ease;
+  }
+  .copy.done{background:var(--ok)}
+  .foot{color:var(--muted);font-size:12.5px;line-height:1.6;margin:22px 2px 0}
+  .foot b{color:var(--txt)}
+</style>
+</head>
+<body>
+  <main class="card">
+    <div class="brand">
+      <svg class="logo" viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+        <defs>
+          <linearGradient id="g" x1="0" y1="0" x2="48" y2="48" gradientUnits="userSpaceOnUse">
+            <stop stop-color="#22d3ee"/><stop offset="1" stop-color="#5b8cff"/>
+          </linearGradient>
+        </defs>
+        <path d="M24 3 6 10v12c0 11 7.6 18.6 18 23 10.4-4.4 18-12 18-23V10L24 3Z" fill="url(#g)"/>
+        <path d="M16.5 24.5l5 5 10-11" stroke="#06122b" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+      <span class="brand-name">VPN<span class="dot">.</span></span>
+    </div>
+
+    <h1>Твой VPN готов 🔒</h1>
+    <p class="sub">Подключись за минуту. Отсканируй QR-код или нажми кнопку ниже — Happ настроится сам.</p>
+
+    {{if .Status.Known}}
+    <div class="status">
+      <div class="status-row">
+        <span>Подписка</span>
+        {{if .Status.Active}}
+          <b class="ok">{{if .Status.ExpiryText}}Активна до {{.Status.ExpiryText}}{{else}}Активна{{end}}</b>
+        {{else}}
+          <b class="off">Истекла</b>
+        {{end}}
+      </div>
+      <div class="status-row">
+        <span>Трафик</span>
+        {{if .Status.Unlimited}}
+          <b>{{.Status.UsedGB}} ГБ · безлимит</b>
+        {{else}}
+          <b>{{.Status.UsedGB}} / {{.Status.TotalGB}} ГБ</b>
+        {{end}}
+      </div>
+      {{if not .Status.Unlimited}}
+      <div class="bar"><i style="{{.Status.BarWidth}}"></i></div>
+      {{end}}
+    </div>
+    {{end}}
+
+    <div class="qr-wrap">
+      <img src="{{.QR}}" alt="QR-код подписки" width="512" height="512">
+    </div>
+    <p class="qr-hint">📷 Наведи камеру или сканер в Happ на код</p>
+
+    {{range .Clients}}
+    <a class="btn {{if .Primary}}btn-primary{{else}}btn-secondary{{end}}" href="{{.Href}}">{{.Label}}</a>
+    {{end}}
+
+    <label class="field-label">Ссылка подписки</label>
+    <div class="field">
+      <code id="url">{{.SubURL}}</code>
+      <button class="copy" id="copy" type="button">Копировать</button>
+    </div>
+
+    <p class="foot">
+      Нет приложения? Установи <b>Happ</b> для своей платформы, затем нажми «Подключить».<br>
+      Подходит для iPhone, Android, Windows, macOS и роутеров.
+    </p>
+  </main>
+
+  <script>
+    (function () {
+      var btn = document.getElementById('copy');
+      var url = document.getElementById('url').textContent;
+      btn.addEventListener('click', function () {
+        var done = function () {
+          btn.textContent = 'Скопировано';
+          btn.classList.add('done');
+          setTimeout(function () {
+            btn.textContent = 'Копировать';
+            btn.classList.remove('done');
+          }, 1800);
+        };
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+          navigator.clipboard.writeText(url).then(done).catch(done);
+        } else {
+          var r = document.createRange();
+          r.selectNode(document.getElementById('url'));
+          var sel = window.getSelection();
+          sel.removeAllRanges(); sel.addRange(r);
+          try { document.execCommand('copy'); } catch (e) {}
+          sel.removeAllRanges();
+          done();
+        }
+      });
+    })();
+  </script>
+</body>
+</html>

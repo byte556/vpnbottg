@@ -1,0 +1,33 @@
+bot:
+  token: "YOUR_BOT_TOKEN"
+  admin_id: 0           # твой Telegram user ID
+  support: "@support"   # username поддержки
+  constructor:
+    devices_step: 1
+    price_per_gb: 20
+    default_devices: 3
+    month_discounts:
+      1:  1.00
+      3:  0.85
+      6:  0.75
+      12: 0.55
+
+yookassa:
+  shop_id: "YOUR_SHOP_ID"
+  secret_key: "YOUR_SECRET_KEY"
+  webhook_url: "https://yourdomain.com/webhook/yookassa"
+  webhook_port: 8080
+
+xui:
+  host: "https://your-panel.example.com:54321"
+  path: ""
+  token: "YOUR_XUI_TOKEN"
+  inbound_ids_direct: [1]
+  inbound_ids_relay: [2]
+  # ссылка, которую бот отправляет пользователю — ведёт на страницу подписки sub-сервера
+  sub_url_template: "https://vpn.example.com:8081/p/%s"
+
+sub_server:
+  port: 8081                                                       # 0 = выключить sub-сервер
+  public_base_url: "https://vpn.example.com:8081"                  # внешний адрес sub-сервера
+  upstream_template: "https://your-panel.example.com:54321/sub/%s" # откуда забирать конфиг из панели

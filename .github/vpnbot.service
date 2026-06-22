@@ -1,0 +1,19 @@
+[Unit]
+Description=VPN Telegram Bot
+After=network.target
+
+[Service]
+Type=simple
+User=vpnbot
+WorkingDirectory=/opt/vpnbot
+ExecStart=/opt/vpnbot/vpnbot
+Restart=on-failure
+RestartSec=5s
+
+# Stdout/stderr → journald
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=vpnbot
+
+[Install]
+WantedBy=multi-user.target

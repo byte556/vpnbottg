@@ -1,10 +1,10 @@
 package sqlite
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
-
-	_ "github.com/mattn/go-sqlite3"
+	"vpnbottg/internal/infra/db"
 )
 
 type DB struct {
@@ -12,58 +12,59 @@ type DB struct {
 }
 
 func New(path string) (*DB, error) {
-	sqldb, err := sql.Open("sqlite3", path+"?_foreign_keys=on&_journal_mode=WAL")
+	sqlxdb, err := db.Connect(path)
 	if err != nil {
-		return nil, fmt.Errorf("repository open: %w", err)
+		return nil, fmt.Errorf("repository connect: %w", err)
 	}
-	if err := sqldb.Ping(); err != nil {
-		return nil, fmt.Errorf("repository ping: %w", err)
-	}
-	d := &DB{sql: sqldb}
-	if err := d.migrate(); err != nil {
-		return nil, fmt.Errorf("repository migrate: %w", err)
-	}
-	return d, nil
+	return &DB{sql: sqlxdb.DB}, nil
 }
 
-func (d *DB) migrate() error {
-	_, err := d.sql.Exec(`
-		CREATE TABLE IF NOT EXISTS users (
-			tg_id        INTEGER PRIMARY KEY,
-			username     TEXT,
-			first_name   TEXT,
-			referred_by  INTEGER REFERENCES users(tg_id),
-			created_at   INTEGER NOT NULL DEFAULT (unixepoch())
-		);
-		CREATE TABLE IF NOT EXISTS subscriptions (
-			id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-			user_id             INTEGER NOT NULL REFERENCES users(tg_id),
-			xui_email_direct    TEXT NOT NULL,
-			xui_email_relay     TEXT NOT NULL,
-			bypass              INTEGER NOT NULL DEFAULT 0,
-			traffic_gb          INTEGER NOT NULL,
-			started_at          INTEGER NOT NULL,
-			expires_at          INTEGER NOT NULL,
-			created_at          INTEGER NOT NULL DEFAULT (unixepoch())
-		);
-		CREATE TABLE IF NOT EXISTS payments (
-			id                  INTEGER PRIMARY KEY AUTOINCREMENT,
-			user_id             INTEGER NOT NULL REFERENCES users(tg_id),
-			amount              INTEGER NOT NULL,
-			provider            TEXT NOT NULL DEFAULT 'yookassa',
-			provider_payment_id TEXT,
-			status              TEXT NOT NULL DEFAULT 'pending',
-			created_at          INTEGER NOT NULL DEFAULT (unixepoch())
-		);
-		CREATE TABLE IF NOT EXISTS audit_log (
-			id         INTEGER PRIMARY KEY AUTOINCREMENT,
-			user_id    INTEGER REFERENCES users(tg_id),
-			action     TEXT NOT NULL,
-			payload    TEXT,
-			created_at INTEGER NOT NULL DEFAULT (unixepoch())
-		);
-	`)
-	return err
+// PurgeUserData удаляет все данные пользователя в одной транзакции.
+// Сначала читает XUI-email'ы из подписок (нужны для удаления в панели),
+// затем чистит: subscriptions → payments → referrals → audit_log (NULL) → users.
+func (d *DB) PurgeUserData(ctx context.Context, tgID int64) (xuiEmailDirect, xuiEmailRelay string, err error) {
+	row := d.sql.QueryRowContext(ctx,
+		`SELECT xui_email_direct, xui_email_relay FROM subscriptions WHERE user_id = ? ORDER BY id DESC LIMIT 1`,
+		tgID,
+	)
+	_ = row.Scan(&xuiEmailDirect, &xuiEmailRelay)
+
+	tx, err := d.sql.BeginTx(ctx, nil)
+	if err != nil {
+		return "", "", fmt.Errorf("purgeUserData: begin tx: %w", err)
+	}
+	defer func() {
+		if err != nil {
+			_ = tx.Rollback()
+		}
+	}()
+
+	stmts := []string{
+		`DELETE FROM subscriptions WHERE user_id = ?`,
+		`DELETE FROM payments     WHERE user_id = ?`,
+		`DELETE FROM referrals    WHERE referrer_id = ? OR referee_id = ?`,
+		`UPDATE audit_log SET user_id = NULL WHERE user_id = ?`,
+		`DELETE FROM users WHERE tg_id = ?`,
+	}
+	args := [][]any{
+		{tgID},
+		{tgID},
+		{tgID, tgID},
+		{tgID},
+		{tgID},
+	}
+
+	for i, stmt := range stmts {
+		if _, execErr := tx.ExecContext(ctx, stmt, args[i]...); execErr != nil {
+			err = fmt.Errorf("purgeUserData step %d: %w", i, execErr)
+			return "", "", err
+		}
+	}
+
+	if err = tx.Commit(); err != nil {
+		return "", "", fmt.Errorf("purgeUserData: commit: %w", err)
+	}
+	return xuiEmailDirect, xuiEmailRelay, nil
 }
 
 func (d *DB) Close() error {

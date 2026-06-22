@@ -132,19 +132,9 @@ func (c *Client) do(ctx context.Context, method, path string, body any) (*apiRes
 
 // ============ public API (panel/api/clients/*) ============
 
-/*
-	AddClient создаёт нового клиента в панели 3x-ui и привязывает его
-
-к указанным inbound'ам за один запрос.
-
-totalGB — лимит трафика в гигабайтах, 0 = безлимит.
-
-expiryTime — время истечения подписки, zero value = не истекает.
-
-limitIP — максимум одновременных подключений, 0 = без лимита.
-
-inboundIDs — обязательны; UUID и субскрипция генерируются панелью.
-*/
+// AddClient создаёт нового клиента в панели 3x-ui и привязывает его к указанным inbound'ам.
+// subID — если непустой, клиент получает этот SubID (используется чтобы direct и relay делили одну ссылку).
+// totalGB=0 — безлимит; expiryTime zero — не истекает; limitIP=0 — без лимита.
 func (c *Client) AddClient(
 	ctx context.Context,
 	email string,
@@ -152,6 +142,7 @@ func (c *Client) AddClient(
 	expiryTime time.Time,
 	limitIP int,
 	inboundIDs []int,
+	subID string,
 ) error {
 	log := logger.L().With().Str("email", email).Logger()
 
@@ -167,16 +158,21 @@ func (c *Client) AddClient(
 		Int("limitIP", limitIP).
 		Msg("addClient: sending request")
 
+	client := map[string]any{
+		"email":      email,
+		"totalGB":    gbToBytes(totalGB),
+		"expiryTime": tsToMs(expiryTime.Unix()),
+		"tgId":       0,
+		"limitIp":    limitIP,
+		"flow":       "xtls-rprx-vision",
+		"enable":     true,
+	}
+	if subID != "" {
+		client["subId"] = subID
+	}
+
 	body := map[string]any{
-		"client": map[string]any{
-			"email":      email,
-			"totalGB":    gbToBytes(totalGB),
-			"expiryTime": tsToMs(expiryTime.Unix()),
-			"tgId":       0,
-			"limitIp":    limitIP,
-			"flow":       "xtls-rprx-vision",
-			"enable":     true,
-		},
+		"client":     client,
 		"inboundIds": inboundIDs,
 	}
 
@@ -243,59 +239,102 @@ func (c *Client) GetClient(ctx context.Context, email string) (*XUIClient, error
 	return &wrap.Client, nil
 }
 
-// UpdateClientByEmail обновляет лимит трафика и срок подписки клиента.
-// Перед обновлением получает текущее состояние клиента чтобы сохранить
-// uuid, flow и остальные поля — панель делает replace, не patch.
-//
-// totalGB — новый лимит в гигабайтах, 0 = безлимит.
-//
-// expiryTime — новый срок истечения, zero value = не истекает.
-func (c *Client) UpdateClientByEmail(
-	ctx context.Context,
-	email string,
-	totalGB int,
-	expiryTime time.Time,
-) error {
-	log := logger.L().With().Str("email", email).Logger()
-
+// UpdateClientByEmail обновляет трафик и срок подписки, сохраняя limitIp.
+func (c *Client) UpdateClientByEmail(ctx context.Context, email string, totalGB int, expiryTime time.Time) error {
 	cl, err := c.GetClient(ctx, email)
 	if err != nil {
-		log.Error().Err(err).Msg("updateClient: getClient failed")
 		return fmt.Errorf("updateClient %s: %w", email, err)
 	}
+	return c.updateClientFull(ctx, cl, totalGB, expiryTime, cl.LimitIP)
+}
 
-	log.Debug().
-		Int("totalGB", totalGB).
-		Int64("expiryTime", tsToMs(expiryTime.Unix())).
-		Msg("updateClient: sending request")
+// AddClientCapacity добавляет GB и устройства к существующему клиенту.
+// addGB и addDevices — дельты (например, +10 GB, +1 устройство).
+func (c *Client) AddClientCapacity(ctx context.Context, email string, addGB, addDevices int) error {
+	cl, err := c.GetClient(ctx, email)
+	if err != nil {
+		return fmt.Errorf("addCapacity %s: %w", email, err)
+	}
+	currentGB := int(cl.TotalGB / giB)
+	currentExpiry := time.UnixMilli(cl.ExpiryTime)
+	return c.updateClientFull(ctx, cl, currentGB+addGB, currentExpiry, cl.LimitIP+addDevices)
+}
 
+// DeleteClient удаляет клиента из панели по email.
+// Если клиент не найден — не возвращает ошибку (идемпотентно).
+func (c *Client) DeleteClient(ctx context.Context, email string) error {
+	log := logger.L().With().Str("email", email).Logger()
+
+	r, err := c.do(ctx, http.MethodPost, "panel/api/clients/del/"+email, nil)
+	if err != nil {
+		log.Error().Err(err).Msg("deleteClient: request failed")
+		return fmt.Errorf("deleteClient %s: %w", email, err)
+	}
+	if r != nil && !r.Success && r.Msg != "" {
+		log.Warn().Str("msg", r.Msg).Msg("deleteClient: panel error")
+		return fmt.Errorf("deleteClient %s: %s", email, r.Msg)
+	}
+	log.Info().Msg("deleteClient: ok")
+	return nil
+}
+
+// DisableClient деактивирует клиента в панели (enable: false).
+func (c *Client) DisableClient(ctx context.Context, email string) error {
+	cl, err := c.GetClient(ctx, email)
+	if err != nil {
+		return fmt.Errorf("disableClient %s: %w", email, err)
+	}
+	log := logger.L().With().Str("email", email).Logger()
 	body := map[string]any{
-		"email":      email,
+		"email":      cl.Email,
 		"id":         cl.UUID,
 		"subId":      cl.SubID,
 		"flow":       cl.Flow,
 		"tgId":       cl.TgID,
 		"limitIp":    cl.LimitIP,
+		"totalGB":    cl.TotalGB,
+		"expiryTime": cl.ExpiryTime,
+		"enable":     false,
+	}
+	r, err := c.do(ctx, http.MethodPost, "panel/api/clients/update/"+email, body)
+	if err != nil {
+		return fmt.Errorf("disableClient %s: %w", email, err)
+	}
+	if !r.Success {
+		return fmt.Errorf("disableClient %s: %s", email, r.Msg)
+	}
+	log.Info().Msg("disableClient: ok")
+	return nil
+}
+
+func (c *Client) updateClientFull(ctx context.Context, cl *XUIClient, totalGB int, expiryTime time.Time, limitIP int) error {
+	log := logger.L().With().Str("email", cl.Email).Logger()
+
+	log.Debug().Int("totalGB", totalGB).Int("limitIP", limitIP).Msg("updateClientFull: sending request")
+
+	body := map[string]any{
+		"email":      cl.Email,
+		"id":         cl.UUID,
+		"subId":      cl.SubID,
+		"flow":       cl.Flow,
+		"tgId":       cl.TgID,
+		"limitIp":    limitIP,
 		"totalGB":    gbToBytes(totalGB),
 		"expiryTime": tsToMs(expiryTime.Unix()),
 		"enable":     true,
 	}
 
-	r, err := c.do(ctx, http.MethodPost, "panel/api/clients/update/"+email, body)
+	r, err := c.do(ctx, http.MethodPost, "panel/api/clients/update/"+cl.Email, body)
 	if err != nil {
-		log.Error().Err(err).Msg("updateClient: request failed")
-		return fmt.Errorf("updateClient %s: %w", email, err)
+		log.Error().Err(err).Msg("updateClientFull: request failed")
+		return fmt.Errorf("updateClient %s: %w", cl.Email, err)
 	}
 	if !r.Success {
-		log.Warn().Str("apiMsg", r.Msg).Msg("updateClient: api returned failure")
-		return fmt.Errorf("updateClient %s: %s", email, r.Msg)
+		log.Warn().Str("apiMsg", r.Msg).Msg("updateClientFull: api returned failure")
+		return fmt.Errorf("updateClient %s: %s", cl.Email, r.Msg)
 	}
 
-	log.Info().
-		Str("uuid", cl.UUID).
-		Int("totalGB", totalGB).
-		Int64("expiryTime", tsToMs(expiryTime.Unix())).
-		Msg("updateClient: ok")
+	log.Info().Int("totalGB", totalGB).Int("limitIP", limitIP).Msg("updateClientFull: ok")
 	return nil
 }
 

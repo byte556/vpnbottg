@@ -1,0 +1,1 @@
+ALTER TABLE subscriptions ADD COLUMN device_limit INTEGER NOT NULL DEFAULT 1;

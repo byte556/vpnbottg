@@ -23,6 +23,10 @@ func NewPaymentService(payments repository.Payments, audit repository.Audit, ykC
 func (s *PaymentService) GetYkClient() *yookassa.Client {
 	return s.ykClient
 }
+
+func (s *PaymentService) HasEverPaid(ctx context.Context, userID int64) (bool, error) {
+	return s.payments.HasSucceededPayment(ctx, userID)
+}
 func (s *PaymentService) InitiatePayment(
 	userID int64,
 	req yookassa.CreatePaymentReq,
@@ -69,22 +73,42 @@ func (s *PaymentService) InitiatePayment(
 	return ykPayment, dbID, nil
 }
 
+// GetPendingPayments возвращает pending платежи за последние 2 часа.
+func (s *PaymentService) GetPendingPayments(ctx context.Context) ([]*models.Payment, error) {
+	return s.payments.GetPendingPayments(ctx)
+}
+
+// Cancel помечает платёж как canceled (идемпотентно).
+func (s *PaymentService) Cancel(ctx context.Context, providerPaymentID string) error {
+	_, err := s.payments.UpdatePaymentStatus(ctx, providerPaymentID, "canceled")
+	return err
+}
+
 // Confirm обновляет статус платежа на succeeded.
-func (s *PaymentService) Confirm(ctx context.Context, providerPaymentID string) error {
+// Возвращает (true, nil) если платеж был обновлён с pending→succeeded.
+// Возвращает (false, nil) если платеж уже succeeded или статус не pending (идемпотентно).
+// Возвращает (false, error) при ошибке БД.
+func (s *PaymentService) Confirm(ctx context.Context, providerPaymentID string) (bool, error) {
 	log := logger.L().With().Str("provider_payment_id", providerPaymentID).Logger()
 
-	if err := s.payments.UpdatePaymentStatus(ctx, providerPaymentID, "succeeded"); err != nil {
+	changed, err := s.payments.UpdatePaymentStatus(ctx, providerPaymentID, "succeeded")
+	if err != nil {
 		log.Error().Err(err).Msg("confirmPayment: failed")
-		return fmt.Errorf("confirmPayment: %w", err)
+		return false, fmt.Errorf("confirmPayment: %w", err)
+	}
+
+	if !changed {
+		log.Info().Msg("confirmPayment: already confirmed")
+		return false, nil
 	}
 
 	p, err := s.payments.GetPaymentByProviderID(ctx, providerPaymentID)
 	if err != nil {
-		return fmt.Errorf("confirmPayment: %w", err)
+		return false, fmt.Errorf("confirmPayment: %w", err)
 	}
 
 	_ = s.audit.Log(ctx, &p.UserID, "payment_succeeded", fmt.Sprintf(`{"payment_id":%d,"amount":%d}`, p.ID, p.Amount))
 
 	log.Info().Msg("confirmPayment: ok")
-	return nil
+	return true, nil
 }

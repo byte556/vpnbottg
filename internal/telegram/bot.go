@@ -3,10 +3,11 @@ package telegram
 import (
 	"time"
 	"vpnbottg/internal/config"
+	"vpnbottg/internal/repository"
 	"vpnbottg/internal/service"
 	"vpnbottg/internal/telegram/callbacks"
 	"vpnbottg/internal/telegram/commands"
-	"vpnbottg/internal/telegram/handlers"
+	"vpnbottg/internal/telegram/middleware"
 
 	tele "gopkg.in/telebot.v3"
 )
@@ -18,9 +19,9 @@ func NewBot() (*tele.Bot, error) {
 	})
 }
 
-func Run(bot *tele.Bot, payment *service.PaymentService) {
-	callbacks.Register(bot, payment)
-	handlers.Register(bot)
-	commands.Register(bot)
+func Run(bot *tele.Bot, payment *service.PaymentService, sub *service.Subscription, user *service.User, ref *service.ReferralService, stats repository.Stats, adminSvc *service.AdminService) {
+	bot.Use(middleware.Dedup)
+	callbacks.Register(bot, payment, sub, user, stats)
+	commands.Register(bot, sub, ref, payment, user, adminSvc)
 	bot.Start()
 }
