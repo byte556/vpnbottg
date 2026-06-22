@@ -182,6 +182,10 @@ func (c *Client) AddClient(
 		return err
 	}
 	if !r.Success {
+		if strings.Contains(r.Msg, "email already in use") {
+			log.Info().Str("email", email).Msg("addClient: client already exists — treating as success")
+			return nil
+		}
 		log.Warn().Str("apiMsg", r.Msg).Msg("addClient: api returned failure")
 		return fmt.Errorf("xui addClient: %s", r.Msg)
 	}
