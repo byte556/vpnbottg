@@ -35,6 +35,8 @@ type Payments interface {
 	GetPendingPayments(ctx context.Context) ([]*models.Payment, error)
 	// HasSucceededPayment возвращает true если у пользователя есть хотя бы один успешный платёж.
 	HasSucceededPayment(ctx context.Context, userID int64) (bool, error)
+	// GetLastSucceededPayment возвращает последний успешный платёж пользователя или ErrNotFound.
+	GetLastSucceededPayment(ctx context.Context, userID int64) (*models.Payment, error)
 	// MarkRefunded помечает платёж как возвращённый.
 	MarkRefunded(ctx context.Context, providerPaymentID string) error
 }

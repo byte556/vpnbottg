@@ -67,6 +67,23 @@ func (d *DB) HasSucceededPayment(ctx context.Context, userID int64) (bool, error
 	return count > 0, nil
 }
 
+func (d *DB) GetLastSucceededPayment(ctx context.Context, userID int64) (*models.Payment, error) {
+	row := d.sql.QueryRowContext(ctx, `
+		SELECT id, user_id, amount, provider, provider_payment_id, status, created_at
+		FROM payments WHERE user_id = ? AND status = 'succeeded'
+		ORDER BY created_at DESC LIMIT 1
+	`, userID)
+
+	var p models.Payment
+	if err := row.Scan(&p.ID, &p.UserID, &p.Amount, &p.Provider, &p.ProviderPaymentID, &p.Status, &p.CreatedAt); err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, repository.ErrNotFound
+		}
+		return nil, fmt.Errorf("getLastSucceededPayment: %w", err)
+	}
+	return &p, nil
+}
+
 func (d *DB) MarkRefunded(ctx context.Context, providerPaymentID string) error {
 	_, err := d.sql.ExecContext(ctx,
 		`UPDATE payments SET status = 'refunded' WHERE provider_payment_id = ?`,

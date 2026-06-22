@@ -38,7 +38,7 @@ func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.Refer
 
 	// Guest menu text buttons
 	bot.Handle(texts.T("start.buttons.buy"), handlers.Constructor)
-	bot.Handle(texts.T("start.buttons.trial"), handlers.TrialStart(payment))
+	bot.Handle(texts.T("start.buttons.trial"), handlers.TrialStart(payment, subSvc))
 	bot.Handle(texts.T("start.buttons.help"), handlers.Help)
 	bot.Handle(texts.T("start.buttons.invite"), inviteHandler)
 

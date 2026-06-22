@@ -137,8 +137,14 @@ func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *s
 			return c.Send(texts.T("check_payment.error_confirm"))
 		}
 		if !changed {
-			log.Info().Msg("CheckPayment: already confirmed, showing success")
-			return handlers.AlreadyProvisioned(c, sub)
+			log.Info().Msg("CheckPayment: already confirmed — checking subscription")
+			if _, subErr := sub.GetActive(ctx, c.Sender().ID); subErr == nil {
+				return handlers.AlreadyProvisioned(c, sub)
+			}
+			// Payment confirmed but subscription never created — retry provision
+			log.Info().Msg("CheckPayment: orphaned payment — retrying provision")
+			_ = c.Edit(texts.T("payment.processing"))
+			return provision(c, ctx, payment.Metadata, sub)
 		}
 
 		if err := user.EnsureUser(ctx, c.Sender().ID, c.Sender().Username, c.Sender().FirstName, nil); err != nil {
