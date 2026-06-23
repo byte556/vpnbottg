@@ -19,7 +19,7 @@ func PromoPrompt(c tele.Context) error {
 
 // PromoDaysSuccess — промокод выдал дни подписки: показываем успех и меню подписчика.
 func PromoDaysSuccess(c tele.Context, res *service.RedeemResult, subSvc *service.Subscription) error {
-	if err := c.Send(texts.T("promo.days_success", map[string]any{
+	if err := editOrFresh(c, texts.T("promo.days_success", map[string]any{
 		"Days":    res.Days,
 		"GB":      res.GB,
 		"Devices": res.Devices,
@@ -31,7 +31,7 @@ func PromoDaysSuccess(c tele.Context, res *service.RedeemResult, subSvc *service
 
 // PromoDiscountApplied — discount-код применён к сессии: сообщаем и открываем конструктор.
 func PromoDiscountApplied(c tele.Context, res *service.RedeemResult) error {
-	if err := c.Send(texts.T("promo.discount_applied", map[string]any{
+	if err := editOrFresh(c, texts.T("promo.discount_applied", map[string]any{
 		"Pct":  res.DiscountPct,
 		"Code": res.Code,
 	}), &tele.SendOptions{ParseMode: tele.ModeHTML}); err != nil {

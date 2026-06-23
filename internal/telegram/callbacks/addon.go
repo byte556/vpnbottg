@@ -128,14 +128,14 @@ func BuyAddonGB(paymentServ *service.PaymentService, userSvc *service.User) tele
 }
 
 func AddonSuccess(c tele.Context, amount int, subSvc *service.Subscription) error {
-	if err := c.Send(texts.T("addon.device_success", map[string]any{"Devices": amount})); err != nil {
+	if err := editOrFresh(c, texts.T("addon.device_success", map[string]any{"Devices": amount})); err != nil {
 		return err
 	}
 	return handlers.Menu(c, subSvc)
 }
 
 func AddonGBSuccess(c tele.Context, gb int, subSvc *service.Subscription) error {
-	if err := c.Send(texts.T("addon.gb_success", map[string]any{"GB": gb})); err != nil {
+	if err := editOrFresh(c, texts.T("addon.gb_success", map[string]any{"GB": gb})); err != nil {
 		return err
 	}
 	return handlers.Menu(c, subSvc)

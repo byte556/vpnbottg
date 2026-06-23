@@ -264,6 +264,47 @@ func (c *Client) AddClientCapacity(ctx context.Context, email string, addGB, add
 	return c.updateClientFull(ctx, cl, currentGB+addGB, currentExpiry, cl.LimitIP+addDevices)
 }
 
+// SetClientSubID присваивает клиенту указанный subId, сохраняя все остальные поля.
+// Используется чтобы direct и relay клиенты делили один subId — тогда одна
+// подписка (subscription-сервер группирует по subId) отдаёт серверы обоих.
+// totalGB/expiryTime берутся как есть (уже в bytes/ms из GetClient).
+func (c *Client) SetClientSubID(ctx context.Context, email, subID string) error {
+	log := logger.L().With().Str("email", email).Str("subId", subID).Logger()
+
+	cl, err := c.GetClient(ctx, email)
+	if err != nil {
+		return fmt.Errorf("setClientSubID %s: %w", email, err)
+	}
+	if cl.SubID == subID {
+		log.Debug().Msg("setClientSubID: already set, skipping")
+		return nil
+	}
+
+	body := map[string]any{
+		"email":      cl.Email,
+		"id":         cl.UUID,
+		"subId":      subID,
+		"flow":       cl.Flow,
+		"tgId":       cl.TgID,
+		"limitIp":    cl.LimitIP,
+		"totalGB":    cl.TotalGB,
+		"expiryTime": cl.ExpiryTime,
+		"enable":     true,
+	}
+	r, err := c.do(ctx, http.MethodPost, "panel/api/clients/update/"+email, body)
+	if err != nil {
+		log.Error().Err(err).Msg("setClientSubID: request failed")
+		return fmt.Errorf("setClientSubID %s: %w", email, err)
+	}
+	if !r.Success {
+		log.Warn().Str("apiMsg", r.Msg).Msg("setClientSubID: api returned failure")
+		return fmt.Errorf("setClientSubID %s: %s", email, r.Msg)
+	}
+
+	log.Info().Msg("setClientSubID: ok")
+	return nil
+}
+
 // DeleteClient удаляет клиента из панели по email.
 // Если клиент не найден — не возвращает ошибку (идемпотентно).
 func (c *Client) DeleteClient(ctx context.Context, email string) error {

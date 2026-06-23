@@ -17,7 +17,7 @@ import (
 // Delegates from callbacks that set AdminAction before calling this.
 func AdminPromptInput(promptKey string) tele.HandlerFunc {
 	return func(c tele.Context) error {
-		return c.Send(texts.T(promptKey), keyboard.AdminCancelKeyboard())
+		return editOrFresh(c, texts.T(promptKey), keyboard.AdminCancelKeyboard())
 	}
 }
 

@@ -69,7 +69,7 @@ func circleNum(i int) string {
 }
 
 func ProvisionSuccess(c tele.Context, subURL string, subSvc *service.Subscription) error {
-	if err := c.Send(
+	if err := editOrFresh(c,
 		texts.T("provision.success"),
 		keyboard.ProvisionSuccessKeyboard(),
 		&tele.SendOptions{ParseMode: tele.ModeHTML},
@@ -80,18 +80,18 @@ func ProvisionSuccess(c tele.Context, subURL string, subSvc *service.Subscriptio
 }
 
 func ProvisionError(c tele.Context) error {
-	return c.Send(texts.T("error.provision"))
+	return editOrFresh(c, texts.T("error.provision"))
 }
 
 func AlreadyProvisioned(c tele.Context, subSvc *service.Subscription) error {
-	if err := c.Send(texts.T("subscription.already_active")); err != nil {
+	if err := editOrFresh(c, texts.T("subscription.already_active")); err != nil {
 		return err
 	}
 	return Menu(c, subSvc)
 }
 
 func EnsureUserError(c tele.Context) error {
-	return c.Send(texts.T("error.user_create"))
+	return editOrFresh(c, texts.T("error.user_create"))
 }
 
 func MyConfig(subSvc *service.Subscription) tele.HandlerFunc {
@@ -99,11 +99,11 @@ func MyConfig(subSvc *service.Subscription) tele.HandlerFunc {
 		ctx := context.Background()
 		sub, err := subSvc.GetActive(ctx, c.Sender().ID)
 		if err != nil {
-			return c.Send(texts.T("error.provision"))
+			return editOrFresh(c, texts.T("error.provision"))
 		}
 		url, err := subSvc.GetConfigURL(ctx, c.Sender().ID)
 		if err != nil {
-			return c.Send(texts.T("error.provision"))
+			return editOrFresh(c, texts.T("error.provision"))
 		}
 
 		daysLeft := max(0, int(time.Until(time.Unix(sub.ExpiresAt, 0)).Hours()/24))
@@ -125,7 +125,7 @@ func MyConfig(subSvc *service.Subscription) tele.HandlerFunc {
 
 		qrBytes, err := qrcode.Encode(url, qrcode.Medium, 256)
 		if err != nil {
-			return c.Send(caption, keyboard.MyConfigKeyboard(), &tele.SendOptions{ParseMode: tele.ModeHTML})
+			return editOrFresh(c, caption, keyboard.MyConfigKeyboard(), &tele.SendOptions{ParseMode: tele.ModeHTML})
 		}
 
 		photo := &tele.Photo{
@@ -195,7 +195,7 @@ func SendDevices(c tele.Context, subSvc *service.Subscription) error {
 	ctx := context.Background()
 	sub, devices, err := subSvc.ListDevices(ctx, c.Sender().ID)
 	if err != nil {
-		return c.Send(texts.T("error.provision"))
+		return editOrFresh(c, texts.T("error.provision"))
 	}
 
 	slotBar := progressBar(len(devices), sub.DeviceLimit, 10)

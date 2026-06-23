@@ -48,30 +48,39 @@ func (s *Subscription) Create(ctx context.Context, userID int64, planDays, traff
 	email := fmt.Sprintf("u%d", userID)
 	emailRelay := email + "r"
 
+	// Direct: безлимит трафика (totalGB=0), inbounds=[1,4].
+	// subID не передаём — панель сгенерирует свой.
 	if err := s.xui.AddClient(ctx, email, 0, expiresAt, deviceLimit, s.inboundsDirect, ""); err != nil {
 		log.Error().Err(err).Msg("createSubscription: xui addClient direct failed")
 		return nil, fmt.Errorf("createSubscription: %w", err)
 	}
 
-	// Получаем SubID direct-клиента, чтобы relay получил тот же —
-	// тогда обе группы серверов появятся в одной ссылке подписки.
+	// Получаем subId direct-клиента — он станет общим subId всей подписки.
 	directClient, err := s.xui.GetClient(ctx, email)
 	if err != nil {
 		log.Error().Err(err).Msg("createSubscription: xui getClient direct failed")
 		return nil, fmt.Errorf("createSubscription get client: %w", err)
 	}
 
+	// Relay: С ограничением трафика (totalGB=trafficGB), inbounds=[3,6].
+	// Тоже без subID при создании (панель отклоняет дубль subId на /add).
+	// После создания выставляем relay общий subId direct'а через /update —
+	// тогда subscription-сервер отдаёт оба клиента в одной ссылке.
 	if len(s.inboundsRelay) > 0 {
-		if err := s.xui.AddClient(ctx, emailRelay, trafficGB, expiresAt, deviceLimit, s.inboundsRelay, directClient.SubID); err != nil {
+		if err := s.xui.AddClient(ctx, emailRelay, trafficGB, expiresAt, deviceLimit, s.inboundsRelay, ""); err != nil {
 			log.Error().Err(err).Msg("createSubscription: xui addClient relay failed")
 			return nil, fmt.Errorf("createSubscription relay: %w", err)
+		}
+		if err := s.xui.SetClientSubID(ctx, emailRelay, directClient.SubID); err != nil {
+			log.Error().Err(err).Msg("createSubscription: xui setClientSubID relay failed")
+			return nil, fmt.Errorf("createSubscription relay subid: %w", err)
 		}
 	}
 
 	sub := &models.Subscription{
 		UserID:         userID,
-		XUIEmailDirect: email,
-		XUIEmailRelay:  emailRelay,
+		XUIEmailDirect: email,      // безлимит
+		XUIEmailRelay:  emailRelay, // с лимитом трафика
 		XUISubID:       directClient.SubID,
 		Bypass:         false,
 		TrafficGB:      trafficGB,
@@ -106,11 +115,13 @@ func (s *Subscription) Renew(ctx context.Context, userID int64, addDays, traffic
 
 	newExpiry := time.Unix(sub.ExpiresAt, 0).AddDate(0, 0, addDays)
 
-	if err := s.xui.UpdateClientByEmail(ctx, sub.XUIEmailDirect, 0, newExpiry); err != nil { // 0 = unlimited
+	// Direct: безлимит трафика
+	if err := s.xui.UpdateClientByEmail(ctx, sub.XUIEmailDirect, 0, newExpiry); err != nil {
 		log.Error().Err(err).Msg("renew: xui update direct failed")
 		return fmt.Errorf("renew: %w", err)
 	}
 
+	// Relay: с ограничением трафика
 	if len(s.inboundsRelay) > 0 {
 		if err := s.xui.UpdateClientByEmail(ctx, sub.XUIEmailRelay, trafficGB, newExpiry); err != nil {
 			log.Error().Err(err).Msg("renew: xui update relay failed")
@@ -232,6 +243,7 @@ func (s *Subscription) AddGB(ctx context.Context, userID int64, addGB int) error
 		return fmt.Errorf("addGB: %w", err)
 	}
 	newGB := sub.TrafficGB + addGB
+	// Трафик добавляется только к relay клиенту
 	if sub.XUIEmailRelay != "" && len(s.inboundsRelay) > 0 {
 		if err := s.xui.AddClientCapacity(ctx, sub.XUIEmailRelay, addGB, 0); err != nil {
 			return fmt.Errorf("addGB: xui relay: %w", err)
@@ -260,10 +272,12 @@ func (s *Subscription) ExtendExpiry(ctx context.Context, userID int64, addDays i
 
 	newExpiry := time.Unix(sub.ExpiresAt, 0).AddDate(0, 0, addDays)
 
+	// Direct: безлимит трафика
 	if err := s.xui.UpdateClientByEmail(ctx, sub.XUIEmailDirect, 0, newExpiry); err != nil {
 		log.Error().Err(err).Msg("extendExpiry: xui direct failed")
 		return fmt.Errorf("extendExpiry: %w", err)
 	}
+	// Relay: сохраняем текущее ограничение трафика
 	if sub.XUIEmailRelay != "" && len(s.inboundsRelay) > 0 {
 		if err := s.xui.UpdateClientByEmail(ctx, sub.XUIEmailRelay, sub.TrafficGB, newExpiry); err != nil {
 			log.Error().Err(err).Msg("extendExpiry: xui relay failed")

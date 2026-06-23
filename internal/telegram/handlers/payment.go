@@ -19,5 +19,5 @@ func PaymentPending(c tele.Context) error {
 }
 
 func PaymentError(c tele.Context) error {
-	return c.Send(texts.T("create_payment.error"))
+	return editOrFresh(c, texts.T("create_payment.error"))
 }

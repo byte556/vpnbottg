@@ -24,14 +24,14 @@ func TrialStart(paymentSvc *service.PaymentService, subSvc *service.Subscription
 		hasPaid, err := paymentSvc.HasEverPaid(ctx, c.Sender().ID)
 		if err != nil {
 			log.Error().Err(err).Msg("TrialStart: HasEverPaid failed")
-			return c.Send(texts.T("create_payment.error"))
+			return editOrFresh(c, texts.T("create_payment.error"))
 		}
 
 		if hasPaid {
 			_, subErr := subSvc.GetActive(ctx, c.Sender().ID)
 			if subErr == nil {
 				// Подписка есть — триал уже использован
-				return c.Send(texts.T("trial.used"))
+				return editOrFresh(c, texts.T("trial.used"))
 			}
 			// Платёж прошёл, но подписки нет — ретраим провижнинг
 			log.Info().Msg("TrialStart: orphaned payment — retrying provision")
@@ -39,7 +39,7 @@ func TrialStart(paymentSvc *service.PaymentService, subSvc *service.Subscription
 		}
 
 		log.Debug().Msg("TrialStart: showing info page")
-		return c.Send(texts.T("trial.info"), keyboard.TrialInfo())
+		return editOrFresh(c, texts.T("trial.info"), keyboard.TrialInfo())
 	}
 }
 
@@ -50,19 +50,19 @@ func retryOrphanedProvision(c tele.Context, ctx context.Context, paymentSvc *ser
 	payment, err := paymentSvc.GetLastSucceededPayment(ctx, c.Sender().ID)
 	if err != nil {
 		if errors.Is(err, repository.ErrNotFound) {
-			return c.Send(texts.T("trial.used"))
+			return editOrFresh(c, texts.T("trial.used"))
 		}
 		log.Error().Err(err).Msg("retryOrphanedProvision: GetLastSucceededPayment failed")
-		return c.Send(texts.T("error.provision"))
+		return editOrFresh(c, texts.T("error.provision"))
 	}
 
 	ykPayment, err := paymentSvc.GetYkClient().FetchPayment(payment.ProviderPaymentID)
 	if err != nil {
 		log.Error().Err(err).Msg("retryOrphanedProvision: FetchPayment failed")
-		return c.Send(texts.T("error.provision"))
+		return editOrFresh(c, texts.T("error.provision"))
 	}
 
-	if err := c.Send(texts.T("payment.processing")); err != nil {
+	if err := editOrFresh(c, texts.T("payment.processing")); err != nil {
 		return err
 	}
 
@@ -93,7 +93,7 @@ func retryOrphanedProvision(c tele.Context, ctx context.Context, paymentSvc *ser
 
 	if err != nil {
 		log.Error().Err(err).Msg("retryOrphanedProvision: provision failed")
-		return c.Send(texts.T("error.provision"))
+		return editOrFresh(c, texts.T("error.provision"))
 	}
 	log.Info().Str("sub_url", subURL).Msg("retryOrphanedProvision: ok")
 	return ProvisionSuccess(c, subURL, subSvc)
