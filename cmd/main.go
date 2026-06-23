@@ -16,6 +16,7 @@ import (
 	"vpnbottg/internal/service"
 	"vpnbottg/internal/subserver"
 	"vpnbottg/internal/telegram"
+	"vpnbottg/internal/telegram/assets"
 	"vpnbottg/internal/telegram/texts"
 
 	tele "gopkg.in/telebot.v3"
@@ -72,8 +73,15 @@ func main() {
 
 	reminderSvc := service.NewReminderService(
 		db, xuiClient,
-		func(userID int64, text string) {
-			bot.Send(&tele.User{ID: userID}, text)
+		func(userID int64, card, text string, markup *tele.ReplyMarkup) {
+			to := &tele.User{ID: userID}
+			// SendOptions первым — иначе telebot затирает ReplyMarkup (см. handlers.sendOptsFirst).
+			opts := &tele.SendOptions{ParseMode: tele.ModeHTML}
+			if photo := assets.Photo(card, text); photo != nil {
+				bot.Send(to, photo, opts, markup)
+				return
+			}
+			bot.Send(to, text, opts, markup)
 		},
 	)
 	go reminderSvc.Run(ctx)

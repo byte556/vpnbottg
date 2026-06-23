@@ -71,6 +71,14 @@ func MenuBar() *tele.ReplyMarkup {
 	return m
 }
 
+// RenewKeyboard — кнопка продления для напоминаний об истечении подписки.
+// Ведёт в конструктор покупки (тот же callback, что «🚀 Купить VPN»).
+func RenewKeyboard() *tele.ReplyMarkup {
+	m := &tele.ReplyMarkup{}
+	m.Inline(m.Row(m.Data(texts.T("buttons.renew"), NavBuy)))
+	return m
+}
+
 func GuestMenu() *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
 	m.Inline(

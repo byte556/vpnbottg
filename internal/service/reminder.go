@@ -6,24 +6,31 @@ import (
 	"vpnbottg/internal/client/xui"
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/repository"
+	"vpnbottg/internal/telegram/keyboard"
 	"vpnbottg/internal/telegram/texts"
+
+	tele "gopkg.in/telebot.v3"
 )
 
+// Notify отправляет пользователю экран напоминания: карточку-обложку card
+// (пустая строка — без карточки) с подписью text и inline-клавиатурой markup.
+type Notify func(userID int64, card, text string, markup *tele.ReplyMarkup)
+
 type Reminder struct {
-	subs repository.Subscriptions
-	xui  *xui.Client
-	send func(userID int64, text string)
+	subs   repository.Subscriptions
+	xui    *xui.Client
+	notify Notify
 }
 
 func NewReminderService(
 	subs repository.Subscriptions,
 	xui *xui.Client,
-	send func(int64, string),
+	notify Notify,
 ) *Reminder {
 	return &Reminder{
-		subs: subs,
-		xui:  xui,
-		send: send,
+		subs:   subs,
+		xui:    xui,
+		notify: notify,
 	}
 }
 
@@ -59,7 +66,7 @@ func (r *Reminder) check(ctx context.Context) {
 	}
 	for _, sub := range expiring {
 		daysLeft := max(1, int(time.Until(time.Unix(sub.ExpiresAt, 0)).Hours()/24))
-		r.send(sub.UserID, texts.T("reminder.expiry", map[string]any{"Days": daysLeft}))
+		r.notify(sub.UserID, "", texts.T("reminder.expiry", map[string]any{"Days": daysLeft}), keyboard.RenewKeyboard())
 		if err := r.subs.MarkReminded(ctx, sub.ID); err != nil {
 			log.Error().Err(err).Int64("sub_id", sub.ID).Msg("check: MarkReminded failed")
 		}
@@ -73,7 +80,7 @@ func (r *Reminder) check(ctx context.Context) {
 		log.Error().Err(err).Msg("check: GetRecentlyExpiredUnnotified failed")
 	}
 	for _, sub := range expired {
-		r.send(sub.UserID, texts.T("reminder.expired"))
+		r.notify(sub.UserID, "expired", texts.T("reminder.expired"), keyboard.RenewKeyboard())
 
 		if err := r.xui.DisableClient(ctx, sub.XUIEmailDirect); err != nil {
 			log.Warn().Err(err).Str("email", sub.XUIEmailDirect).Msg("check: disable failed")
