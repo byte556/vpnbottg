@@ -20,6 +20,11 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 	bot.Handle(&tele.Btn{Unique: keyboard.NavDevices}, handlers.Devices(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.NavSettings}, handlers.Settings(sub))
 
+	// Кнопки-подписи (значение по центру ряда ➕/➖) — гасим спиннер, ничего не меняем.
+	noop := func(c tele.Context) error { return c.Respond() }
+	bot.Handle(&tele.Btn{Unique: keyboard.NoopGB}, noop)
+	bot.Handle(&tele.Btn{Unique: keyboard.NoopDev}, noop)
+
 	bot.Handle(&tele.Btn{Unique: keyboard.GbDec}, GbDec)
 	bot.Handle(&tele.Btn{Unique: keyboard.GbInc}, GbInc)
 

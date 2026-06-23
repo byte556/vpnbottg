@@ -39,6 +39,11 @@ var (
 	Back       = "back_menu"
 	ShowConfig = "show_config"
 
+	// Кнопки-подписи в рядах ➕/➖ (значение по центру). Ничего не делают,
+	// но должны быть зарегистрированы, иначе Telegram крутит вечный спиннер.
+	NoopGB  = "noop_gb"
+	NoopDev = "noop_dev"
+
 	// Главное меню (inline-навигация).
 	NavBuy      = "nav_buy"
 	NavTrial    = "nav_trial"
@@ -61,6 +66,15 @@ var (
 	AdminCancelInput = "admin_cancel_input"
 	AdminBack        = "admin_back"
 )
+
+// MenuBar — постоянная нижняя кнопка быстрого возврата в меню. Inline-навигация
+// остаётся на самих сообщениях; эта кнопка просто всегда под рукой, чтобы вернуться
+// в меню, даже если экран с «◀️ Меню» уехал вверх по чату.
+func MenuBar() *tele.ReplyMarkup {
+	m := &tele.ReplyMarkup{ResizeKeyboard: true}
+	m.Reply(m.Row(m.Text(texts.T("buttons.menu"))))
+	return m
+}
 
 func GuestMenu() *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
@@ -144,12 +158,12 @@ func Constructor(s *session.ConstructorState) *tele.ReplyMarkup {
 	m.Inline(
 		m.Row(
 			m.Data("➖", GbDec),
-			m.Data(gbLabel, "noop_gb"),
+			m.Data(gbLabel, NoopGB),
 			m.Data("➕", GbInc),
 		),
 		m.Row(
 			m.Data("➖", DevicesDec),
-			m.Data(devLabel, "noop_dev"),
+			m.Data(devLabel, NoopDev),
 			m.Data("➕", DevicesInc),
 		),
 		m.Row(monthBtn(1), monthBtn(3), monthBtn(6), monthBtn(12)),
@@ -165,13 +179,13 @@ func SettingsKeyboard(addDev, devPrice, addGB, gbPrice int) *tele.ReplyMarkup {
 	m.Inline(
 		m.Row(
 			m.Data("➖", AddonDevDec),
-			m.Data(fmt.Sprintf("+%d устр.", addDev), "noop_dev"),
+			m.Data(fmt.Sprintf("+%d устр.", addDev), NoopDev),
 			m.Data("➕", AddonDevInc),
 		),
 		m.Row(m.Data(fmt.Sprintf("💳 %d ₽ за устройство", devPrice), BuyAddonDev)),
 		m.Row(
 			m.Data("➖", AddonGBDec),
-			m.Data(fmt.Sprintf("+%d ГБ", addGB), "noop_gb"),
+			m.Data(fmt.Sprintf("+%d ГБ", addGB), NoopGB),
 			m.Data("➕", AddonGBInc),
 		),
 		m.Row(m.Data(fmt.Sprintf("💳 %d ₽ за трафик", gbPrice), BuyAddonGB)),

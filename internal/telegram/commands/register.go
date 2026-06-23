@@ -10,6 +10,7 @@ import (
 	"vpnbottg/internal/repository"
 	"vpnbottg/internal/service"
 	"vpnbottg/internal/telegram/handlers"
+	"vpnbottg/internal/telegram/keyboard"
 	"vpnbottg/internal/telegram/middleware"
 	"vpnbottg/internal/telegram/session"
 	"vpnbottg/internal/telegram/texts"
@@ -33,8 +34,16 @@ func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.Refer
 				}
 			}
 		}
+		// Ставим постоянную нижнюю кнопку «☰ Меню» (держится для всех следующих
+		// сообщений). Заодно вытесняет старую полную reply-клаву у прежних юзеров.
+		if err := c.Send(texts.T("start.text"), keyboard.MenuBar()); err != nil {
+			return err
+		}
 		return menuHandler(c)
 	})
+
+	// Кнопка «☰ Меню» (постоянная нижняя панель) — быстрый возврат в меню.
+	bot.Handle(texts.T("buttons.menu"), menuHandler)
 
 	// Меню теперь inline (см. callbacks.Register / keyboard.GuestMenu+SubscriberMenu).
 	// Эти text-обработчики оставлены как fallback для пользователей, у которых ещё
