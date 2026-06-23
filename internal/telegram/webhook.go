@@ -312,7 +312,8 @@ func (h *WebhookHandler) sendHTML(userID int64, text string) {
 }
 
 func (h *WebhookHandler) sendHTMLWithKeyboard(userID int64, text string, markup *tele.ReplyMarkup) {
-	if _, err := h.bot.Send(&tele.User{ID: userID}, text, markup, &tele.SendOptions{ParseMode: tele.ModeHTML}); err != nil {
+	// SendOptions первым — иначе telebot затирает клавиатуру (см. handlers.sendOptsFirst).
+	if _, err := h.bot.Send(&tele.User{ID: userID}, text, &tele.SendOptions{ParseMode: tele.ModeHTML}, markup); err != nil {
 		logger.L().Error().Err(err).Int64("user_id", userID).Msg("webhook: bot sendHTMLWithKeyboard failed")
 	}
 }

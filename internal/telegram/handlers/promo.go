@@ -46,10 +46,11 @@ func AdminPromo(promoSvc *service.PromoService) tele.HandlerFunc {
 		if err != nil {
 			return c.EditOrSend(texts.T("admin.err_generic"), keyboard.AdminCancelKeyboard())
 		}
+		// SendOptions первым — иначе telebot затирает клавиатуру (см. sendOptsFirst).
 		return c.EditOrSend(
 			texts.T("admin.promo.text", map[string]any{"List": formatPromoList(codes)}),
-			keyboard.AdminCancelKeyboard(),
 			&tele.SendOptions{ParseMode: tele.ModeHTML},
+			keyboard.AdminCancelKeyboard(),
 		)
 	}
 }

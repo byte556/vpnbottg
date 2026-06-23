@@ -131,7 +131,8 @@ func MyConfig(subSvc *service.Subscription) tele.HandlerFunc {
 			File:    tele.FromReader(bytes.NewReader(qrBytes)),
 			Caption: caption,
 		}
-		return c.Send(photo, keyboard.MyConfigKeyboard(), &tele.SendOptions{ParseMode: tele.ModeHTML})
+		// SendOptions передаём первым — иначе telebot затирает клавиатуру (см. sendOptsFirst).
+		return c.Send(photo, &tele.SendOptions{ParseMode: tele.ModeHTML}, keyboard.MyConfigKeyboard())
 	}
 }
 
