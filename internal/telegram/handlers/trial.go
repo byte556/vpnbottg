@@ -62,7 +62,7 @@ func retryOrphanedProvision(c tele.Context, ctx context.Context, paymentSvc *ser
 		return editOrFresh(c, texts.T("error.provision"))
 	}
 
-	if err := editOrFresh(c, texts.T("payment.processing")); err != nil {
+	if err := PaymentProcessing(c); err != nil {
 		return err
 	}
 

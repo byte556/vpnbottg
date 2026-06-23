@@ -12,6 +12,7 @@ import (
 	"vpnbottg/internal/config"
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/service"
+	"vpnbottg/internal/telegram/assets"
 	"vpnbottg/internal/telegram/keyboard"
 	"vpnbottg/internal/telegram/texts"
 
@@ -266,7 +267,7 @@ func (h *WebhookHandler) process(ctx context.Context, ykPayment *yookassa.Paymen
 		}
 	}
 
-	h.sendHTMLWithKeyboard(tgID, texts.T("provision.success"), keyboard.ProvisionSuccessKeyboard())
+	h.sendCard(tgID, "success", texts.T("provision.success"), keyboard.ProvisionSuccessKeyboard())
 	h.sendSubscriberMenu(ctx, tgID)
 	log.Info().Str("sub_url", subURL).Msg("process: ok")
 
@@ -308,6 +309,20 @@ func (h *WebhookHandler) send(userID int64, text string) {
 func (h *WebhookHandler) sendHTML(userID int64, text string) {
 	if _, err := h.bot.Send(&tele.User{ID: userID}, text, &tele.SendOptions{ParseMode: tele.ModeHTML}); err != nil {
 		logger.L().Error().Err(err).Int64("user_id", userID).Msg("webhook: bot sendHTML failed")
+	}
+}
+
+// sendCard отправляет экран-карточку (фото + подпись) с клавиатурой. Если карточки
+// нет, откатывается на обычное HTML-сообщение.
+func (h *WebhookHandler) sendCard(userID int64, card, caption string, markup *tele.ReplyMarkup) {
+	photo := assets.Photo(card, caption)
+	if photo == nil {
+		h.sendHTMLWithKeyboard(userID, caption, markup)
+		return
+	}
+	// SendOptions первым — иначе telebot затирает клавиатуру (см. handlers.sendOptsFirst).
+	if _, err := h.bot.Send(&tele.User{ID: userID}, photo, &tele.SendOptions{ParseMode: tele.ModeHTML}, markup); err != nil {
+		logger.L().Error().Err(err).Int64("user_id", userID).Msg("webhook: bot sendCard failed")
 	}
 }
 

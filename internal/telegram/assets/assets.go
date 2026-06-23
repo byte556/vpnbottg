@@ -25,6 +25,7 @@ var cardFiles = map[string]string{
 	"settings":   "settings.png",   // мой тариф
 	"promo":      "promo.png",      // ввод промокода
 	"payment":    "payment.png",    // ожидание оплаты
+	"activating": "activating.png", // оплата получена, активируем VPN
 	"success":    "success.png",    // VPN активирован
 	"help":       "help.png",       // помощь
 	"invite":     "invite.png",     // пригласить друга

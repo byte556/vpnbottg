@@ -109,7 +109,7 @@ func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *s
 		// Оплата подтверждена — сразу отвечаем на callback (убираем спиннер),
 		// затем заменяем сообщение с кнопкой на статус "обрабатываем".
 		_ = c.Respond(&tele.CallbackResponse{})
-		_ = editOrFresh(c, texts.T("payment.processing"))
+		_ = handlers.PaymentProcessing(c)
 
 		ctx := context.Background()
 
@@ -135,7 +135,7 @@ func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *s
 			}
 			// Payment confirmed but subscription never created — retry provision
 			log.Info().Msg("CheckPayment: orphaned payment — retrying provision")
-			_ = editOrFresh(c, texts.T("payment.processing"))
+			_ = handlers.PaymentProcessing(c)
 			return provision(c, ctx, payment.Metadata, sub)
 		}
 

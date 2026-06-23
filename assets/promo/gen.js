@@ -54,6 +54,7 @@ const invite     = G +
 const expired    =
   '<path d="M24 3 6 10v12c0 11 7.6 18.6 18 23 10.4-4.4 18-12 18-23V10L24 3Z" fill="#3a3d46"/>' +
   '<path d="M18.5 18.5l11 11M29.5 18.5l-11 11" stroke="'+BG+'" stroke-width="3.4" fill="none" stroke-linecap="round"/>';
+const activating = G + '<path d="M27 3 9 27h11l-2 18 19-26H25l3-16Z" fill="url(#g)"/>';
 
 const screens = [
   { name: 'menu_main',  title: 'Главное меню',      icon: shield },
@@ -64,6 +65,7 @@ const screens = [
   { name: 'settings',   title: 'Мой тариф',         icon: sliders },
   { name: 'promo',      title: 'Промокод',          icon: ticket },
   { name: 'payment',    title: 'Оплата',            icon: card },
+  { name: 'activating', title: 'Активируем VPN',    icon: activating },
   { name: 'success',    title: 'VPN активирован',   icon: success },
   { name: 'help',       title: 'Помощь',            icon: help },
   { name: 'invite',     title: 'Пригласить друга',  icon: invite },

@@ -18,6 +18,12 @@ func PaymentPending(c tele.Context) error {
 	)
 }
 
+// PaymentProcessing — экран «оплата получена, активируем VPN» (карточка activating).
+// Показывается между подтверждением оплаты и выдачей конфига.
+func PaymentProcessing(c tele.Context) error {
+	return screen(c, "activating", texts.T("payment.processing"))
+}
+
 func PaymentError(c tele.Context) error {
 	return editOrFresh(c, texts.T("create_payment.error"))
 }
