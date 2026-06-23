@@ -82,13 +82,16 @@ type Session struct {
 	PaymentURL   string
 	Constructor  ConstructorState
 	AddOnDevices int
+	AddOnGB      int
 	AdminAction  string
 }
 
-// AddonDevicesPrice — цена add-on'а зависит только от числа устройств.
-// Трафик и устройства независимы, поэтому GB в расчёте не участвует.
 func (s *Session) AddonDevicesPrice() int {
 	return s.AddOnDevices * config.Cfg.Bot.Constructor.PricePerDevice
+}
+
+func (s *Session) AddonGBPrice() int {
+	return s.AddOnGB * config.Cfg.Bot.Constructor.PricePerGB
 }
 
 type Store struct {
@@ -118,6 +121,7 @@ func (s *Store) Get(tgID int64) Session {
 			months:  1,
 		},
 		AddOnDevices: 1,
+		AddOnGB:      max(10, cfg.GBStep),
 	}
 	s.data[tgID] = &def
 	return def

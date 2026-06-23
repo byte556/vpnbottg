@@ -160,7 +160,8 @@ func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *s
 func provision(c tele.Context, ctx context.Context, meta map[string]string, sub *service.Subscription) error {
 	log := logger.L().With().Str("func", "provision").Int64("user_id", c.Sender().ID).Logger()
 
-	if meta["addon_type"] == "device" {
+	switch meta["addon_type"] {
+	case "device":
 		amount, _ := strconv.Atoi(meta["amount"])
 		log.Info().Int("devices", amount).Msg("provision: device addon")
 		if err := sub.AddDevice(ctx, c.Sender().ID, amount); err != nil {
@@ -168,6 +169,14 @@ func provision(c tele.Context, ctx context.Context, meta map[string]string, sub 
 			return handlers.ProvisionError(c)
 		}
 		return AddonSuccess(c, amount, sub)
+	case "gb":
+		amount, _ := strconv.Atoi(meta["amount"])
+		log.Info().Int("gb", amount).Msg("provision: gb addon")
+		if err := sub.AddGB(ctx, c.Sender().ID, amount); err != nil {
+			log.Error().Err(err).Msg("provision: AddGB failed")
+			return handlers.ProvisionError(c)
+		}
+		return AddonGBSuccess(c, amount, sub)
 	}
 
 	totalGB, _ := strconv.Atoi(meta["total_gb"])

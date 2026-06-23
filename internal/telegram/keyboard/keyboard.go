@@ -28,9 +28,15 @@ var (
 	AddonDevInc = "addon_dev_inc"
 	BuyAddonDev = "buy_addon_dev"
 
+	AddonGBDec = "addon_gb_dec"
+	AddonGBInc = "addon_gb_inc"
+	BuyAddonGB = "buy_addon_gb"
+
 	DeleteDevice = "delete_device"
 
 	TrialBuy = "trial_buy"
+
+	Back = "back_menu"
 
 	AdminStats       = "admin_stats"
 	AdminSubs        = "admin_subs"
@@ -60,8 +66,7 @@ func SubscriberMenu() *tele.ReplyMarkup {
 	menu := &tele.ReplyMarkup{ResizeKeyboard: true}
 	menu.Reply(
 		menu.Row(menu.Text(texts.T("menu.subscriber.buttons.my_config"))),
-		menu.Row(menu.Text(texts.T("menu.subscriber.buttons.devices")), menu.Text(texts.T("menu.subscriber.buttons.add"))),
-		menu.Row(menu.Text(texts.T("menu.subscriber.buttons.status"))),
+		menu.Row(menu.Text(texts.T("menu.subscriber.buttons.devices")), menu.Text(texts.T("menu.subscriber.buttons.settings"))),
 		menu.Row(menu.Text(texts.T("menu.subscriber.buttons.help")), menu.Text(texts.T("menu.subscriber.buttons.invite"))),
 	)
 	return menu
@@ -112,30 +117,34 @@ func Constructor(s *session.ConstructorState) *tele.ReplyMarkup {
 	return m
 }
 
-func AddDeviceKeyboard(amount, price int) *tele.ReplyMarkup {
+func SettingsKeyboard(addDev, devPrice, addGB, gbPrice int) *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
 	m.Inline(
 		m.Row(
 			m.Data("➖", AddonDevDec),
-			m.Data(fmt.Sprintf("+%d устр.", amount), "noop_dev"),
+			m.Data(fmt.Sprintf("+%d устр.", addDev), "noop_dev"),
 			m.Data("➕", AddonDevInc),
 		),
-		m.Row(m.Data(fmt.Sprintf("💳 Оплатить %d ₽", price), BuyAddonDev)),
+		m.Row(m.Data(fmt.Sprintf("💳 %d ₽ за устройство", devPrice), BuyAddonDev)),
+		m.Row(
+			m.Data("➖", AddonGBDec),
+			m.Data(fmt.Sprintf("+%d ГБ", addGB), "noop_gb"),
+			m.Data("➕", AddonGBInc),
+		),
+		m.Row(m.Data(fmt.Sprintf("💳 %d ₽ за трафик", gbPrice), BuyAddonGB)),
+		m.Row(m.Data(texts.T("buttons.back"), Back)),
 	)
 	return m
 }
 
 func DevicesKeyboard(devices []*models.DeviceConnection) *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
-	if len(devices) == 0 {
-		return m
-	}
-
-	rows := make([]tele.Row, 0, len(devices))
+	rows := make([]tele.Row, 0, len(devices)+1)
 	for i, device := range devices {
-		label := fmt.Sprintf("Удалить #%d", i+1)
+		label := fmt.Sprintf("🗑 Удалить #%d", i+1)
 		rows = append(rows, m.Row(m.Data(label, DeleteDevice, fmt.Sprintf("%d", device.ID))))
 	}
+	rows = append(rows, m.Row(m.Data(texts.T("buttons.back"), Back)))
 	m.Inline(rows...)
 	return m
 }

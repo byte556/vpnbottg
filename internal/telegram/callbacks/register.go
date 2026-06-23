@@ -29,7 +29,13 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevDec}, AddonDevDec(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevInc}, AddonDevInc(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.BuyAddonDev}, BuyAddonDevice(payment, user))
+
+	bot.Handle(&tele.Btn{Unique: keyboard.AddonGBDec}, AddonGBDec(sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.AddonGBInc}, AddonGBInc(sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.BuyAddonGB}, BuyAddonGB(payment, user))
+
 	bot.Handle(&tele.Btn{Unique: keyboard.DeleteDevice}, DeleteDevice(sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.Back}, BackToMenu(sub))
 
 	adminOnly := middleware.AdminOnly
 	bot.Handle(&tele.Btn{Unique: keyboard.AdminStats}, adminOnly(AdminStatsCallback(stats)))

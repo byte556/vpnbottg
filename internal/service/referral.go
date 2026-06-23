@@ -37,6 +37,12 @@ func (s *ReferralService) Record(ctx context.Context, refereeID, referrerID int6
 	return nil
 }
 
+// GetCount возвращает число рефералов пользователя (пришедших по его ссылке).
+func (s *ReferralService) GetCount(ctx context.Context, userID int64) int {
+	count, _ := s.refs.GetReferralCount(ctx, userID)
+	return count
+}
+
 // Reward проверяет наличие невознаграждённого реферала для refereeID,
 // продлевает подписку реферрера и помечает реферал как вознаграждённый.
 // Возвращает (referrerID, nil) при успехе, (0, nil) если нечего вознаграждать,

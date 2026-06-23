@@ -21,7 +21,7 @@ func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.Refer
 	menuHandler := func(c tele.Context) error {
 		return handlers.Menu(c, subSvc)
 	}
-	inviteHandler := handlers.Invite(bot.Me.Username)
+	inviteHandler := handlers.Invite(bot.Me.Username, refSvc)
 
 	bot.Handle("/start", func(c tele.Context) error {
 		if refSvc != nil {
@@ -44,9 +44,8 @@ func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.Refer
 
 	// Subscriber menu text buttons
 	bot.Handle(texts.T("menu.subscriber.buttons.my_config"), handlers.MyConfig(subSvc))
-	bot.Handle(texts.T("menu.subscriber.buttons.add"), handlers.AddDeviceScreen(subSvc))
 	bot.Handle(texts.T("menu.subscriber.buttons.devices"), handlers.Devices(subSvc))
-	bot.Handle(texts.T("menu.subscriber.buttons.status"), handlers.StatusSub(subSvc))
+	bot.Handle(texts.T("menu.subscriber.buttons.settings"), handlers.Settings(subSvc))
 	bot.Handle(texts.T("menu.subscriber.buttons.help"), handlers.Help)
 	bot.Handle(texts.T("menu.subscriber.buttons.invite"), inviteHandler)
 

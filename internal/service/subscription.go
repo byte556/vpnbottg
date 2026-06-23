@@ -225,6 +225,26 @@ func (s *Subscription) DeleteDevice(ctx context.Context, userID int64, deviceCon
 	return nil
 }
 
+// AddGB добавляет ГБ трафика к активной подписке.
+func (s *Subscription) AddGB(ctx context.Context, userID int64, addGB int) error {
+	sub, err := s.subs.GetActiveSubscription(ctx, userID)
+	if err != nil {
+		return fmt.Errorf("addGB: %w", err)
+	}
+	newGB := sub.TrafficGB + addGB
+	if sub.XUIEmailRelay != "" && len(s.inboundsRelay) > 0 {
+		if err := s.xui.AddClientCapacity(ctx, sub.XUIEmailRelay, addGB, 0); err != nil {
+			return fmt.Errorf("addGB: xui relay: %w", err)
+		}
+	}
+	if err := s.subs.UpdateSubscriptionDevices(ctx, sub.ID, sub.DeviceLimit, newGB); err != nil {
+		return fmt.Errorf("addGB: db: %w", err)
+	}
+	_ = s.audit.Log(ctx, &userID, "addon_gb",
+		fmt.Sprintf(`{"sub_id":%d,"add_gb":%d,"new_gb":%d}`, sub.ID, addGB, newGB))
+	return nil
+}
+
 // ExtendExpiry добавляет дни к активной подписке без изменения трафика.
 // Используется для реферального вознаграждения.
 func (s *Subscription) ExtendExpiry(ctx context.Context, userID int64, addDays int) error {

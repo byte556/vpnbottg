@@ -257,7 +257,7 @@ func (h *WebhookHandler) process(ctx context.Context, ykPayment *yookassa.Paymen
 		h.send(tgID, texts.T("error.provision"))
 		return
 	}
-	h.send(tgID, texts.T("provision.success", map[string]any{"URL": subURL}))
+	h.sendHTML(tgID, texts.T("provision.success"))
 	h.sendSubscriberMenu(ctx, tgID)
 	log.Info().Str("sub_url", subURL).Msg("process: ok")
 
@@ -293,6 +293,12 @@ func (h *WebhookHandler) rewardReferrer(ctx context.Context, refereeID int64, lo
 func (h *WebhookHandler) send(userID int64, text string) {
 	if _, err := h.bot.Send(&tele.User{ID: userID}, text); err != nil {
 		logger.L().Error().Err(err).Int64("user_id", userID).Msg("webhook: bot send failed")
+	}
+}
+
+func (h *WebhookHandler) sendHTML(userID int64, text string) {
+	if _, err := h.bot.Send(&tele.User{ID: userID}, text, &tele.SendOptions{ParseMode: tele.ModeHTML}); err != nil {
+		logger.L().Error().Err(err).Int64("user_id", userID).Msg("webhook: bot sendHTML failed")
 	}
 }
 
