@@ -84,6 +84,20 @@ type Session struct {
 	AddOnDevices int
 	AddOnGB      int
 	AdminAction  string
+
+	// Промокод-скидка, применённая к покупке в конструкторе (списывается после оплаты).
+	PromoCode        string
+	PromoDiscountPct int
+	// AwaitPromo — ждём от пользователя ввод промокода следующим сообщением.
+	AwaitPromo bool
+}
+
+// ApplyDiscount применяет активную промо-скидку к цене (округление вниз).
+func (s *Session) ApplyDiscount(price int) int {
+	if s.PromoDiscountPct <= 0 {
+		return price
+	}
+	return price * (100 - s.PromoDiscountPct) / 100
 }
 
 func (s *Session) AddonDevicesPrice() int {

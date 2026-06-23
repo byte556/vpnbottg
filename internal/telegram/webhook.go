@@ -69,6 +69,7 @@ type WebhookHandler struct {
 	sub     *service.Subscription
 	user    *service.User
 	ref     *service.ReferralService
+	promo   *service.PromoService
 }
 
 func NewWebhookHandler(
@@ -77,8 +78,9 @@ func NewWebhookHandler(
 	sub *service.Subscription,
 	user *service.User,
 	ref *service.ReferralService,
+	promo *service.PromoService,
 ) *WebhookHandler {
-	return &WebhookHandler{bot: bot, payment: payment, sub: sub, user: user, ref: ref}
+	return &WebhookHandler{bot: bot, payment: payment, sub: sub, user: user, ref: ref, promo: promo}
 }
 
 // Handle — HTTP хендлер для YooKassa webhook.
@@ -257,6 +259,15 @@ func (h *WebhookHandler) process(ctx context.Context, ykPayment *yookassa.Paymen
 		h.send(tgID, texts.T("error.provision"))
 		return
 	}
+	// Списываем промо-скидку, если она была применена к покупке.
+	if h.promo != nil {
+		if code := meta["promo_code"]; code != "" {
+			if err := h.promo.ConsumeDiscount(ctx, tgID, code); err != nil {
+				log.Error().Err(err).Str("code", code).Msg("process: ConsumeDiscount failed")
+			}
+		}
+	}
+
 	h.sendHTMLWithKeyboard(tgID, texts.T("provision.success"), keyboard.ProvisionSuccessKeyboard())
 	h.sendSubscriberMenu(ctx, tgID)
 	log.Info().Str("sub_url", subURL).Msg("process: ok")

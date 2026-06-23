@@ -13,12 +13,20 @@ func Constructor(c tele.Context) error {
 	sess := session.GetStore().Get(c.Sender().ID)
 	cs := &sess.Constructor
 
+	base := cs.CalcPrice()
+	final := sess.ApplyDiscount(base)
+
 	var pricingLine string
-	if cs.GetMonths() == 1 {
-		pricingLine = fmt.Sprintf("💳 %d ₽  (~%d ₽/день)", cs.CalcPrice(), cs.CalcPricePerDay())
-	} else {
+	switch {
+	case sess.PromoDiscountPct > 0:
+		// С активной промо-скидкой показываем зачёркнутую исходную и итоговую цену.
+		pricingLine = fmt.Sprintf("💳 <s>%d ₽</s> → <b>%d ₽</b>  (−%d%% по промокоду %s)",
+			base, final, sess.PromoDiscountPct, sess.PromoCode)
+	case cs.GetMonths() == 1:
+		pricingLine = fmt.Sprintf("💳 %d ₽  (~%d ₽/день)", base, cs.CalcPricePerDay())
+	default:
 		pricingLine = fmt.Sprintf("💳 %d ₽/мес → итого %d ₽  (~%d ₽/день)",
-			cs.CalcPricePerMonth(), cs.CalcPrice(), cs.CalcPricePerDay())
+			cs.CalcPricePerMonth(), base, cs.CalcPricePerDay())
 	}
 
 	savingsLine := ""
@@ -34,5 +42,6 @@ func Constructor(c tele.Context) error {
 		"SavingsLine": savingsLine,
 	})
 
-	return editOrFresh(c, text, keyboard.Constructor(&sess.Constructor))
+	return editOrFresh(c, text, keyboard.Constructor(&sess.Constructor, final),
+		&tele.SendOptions{ParseMode: tele.ModeHTML})
 }
