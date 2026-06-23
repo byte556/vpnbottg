@@ -104,30 +104,21 @@ func (s *Server) fetchStatus(ctx context.Context, subID string) subStatus {
 	defer resp.Body.Close()
 	_, _ = io.Copy(io.Discard, resp.Body)
 
-	up, down, total, expire, ok := parseUserinfo(resp.Header.Get("Subscription-Userinfo"))
+	up, down, _, expire, ok := parseUserinfo(resp.Header.Get("Subscription-Userinfo"))
 	if !ok {
 		return subStatus{}
 	}
 
+	// Продукт безлимитный по трафику: показываем только «использовано»,
+	// без квоты и прогресс-бара — игнорируем total, даже если он задан в панели.
 	st := subStatus{
 		Known:     true,
 		Active:    expire == 0 || expire > time.Now().Unix(),
-		Unlimited: total <= 0,
+		Unlimited: true,
 		UsedGB:    formatGB(up + down),
 	}
 	if expire > 0 {
 		st.ExpiryText = time.Unix(expire, 0).Format("02.01.2006")
-	}
-	if !st.Unlimited {
-		st.TotalGB = formatGB(total)
-		pct := int((float64(up+down) / float64(total)) * 100)
-		if pct < 0 {
-			pct = 0
-		}
-		if pct > 100 {
-			pct = 100
-		}
-		st.BarWidth = template.CSS(fmt.Sprintf("width:%d%%", pct))
 	}
 	return st
 }
