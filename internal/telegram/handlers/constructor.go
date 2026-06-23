@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"fmt"
-	"strings"
 	"vpnbottg/internal/telegram/keyboard"
 	"vpnbottg/internal/telegram/session"
 	"vpnbottg/internal/telegram/texts"
@@ -35,9 +34,5 @@ func Constructor(c tele.Context) error {
 		"SavingsLine": savingsLine,
 	})
 
-	err := c.EditOrSend(text, keyboard.Constructor(&sess.Constructor))
-	if err != nil && strings.Contains(err.Error(), "specified new message content and reply") {
-		return nil
-	}
-	return err
+	return editOrFresh(c, text, keyboard.Constructor(&sess.Constructor))
 }

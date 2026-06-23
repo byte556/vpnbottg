@@ -36,7 +36,17 @@ var (
 
 	TrialBuy = "trial_buy"
 
-	Back = "back_menu"
+	Back       = "back_menu"
+	ShowConfig = "show_config"
+
+	// Главное меню (inline-навигация).
+	NavBuy      = "nav_buy"
+	NavTrial    = "nav_trial"
+	NavHelp     = "nav_help"
+	NavInvite   = "nav_invite"
+	NavConfig   = "nav_config"
+	NavDevices  = "nav_devices"
+	NavSettings = "nav_settings"
 
 	AdminStats       = "admin_stats"
 	AdminSubs        = "admin_subs"
@@ -53,28 +63,60 @@ var (
 )
 
 func GuestMenu() *tele.ReplyMarkup {
-	menu := &tele.ReplyMarkup{ResizeKeyboard: true}
-	menu.Reply(
-		menu.Row(menu.Text(texts.T("start.buttons.trial"))),
-		menu.Row(menu.Text(texts.T("start.buttons.buy"))),
-		menu.Row(menu.Text(texts.T("start.buttons.help")), menu.Text(texts.T("start.buttons.invite"))),
+	m := &tele.ReplyMarkup{}
+	m.Inline(
+		m.Row(m.Data(texts.T("start.buttons.buy"), NavBuy)),
+		m.Row(m.Data(texts.T("start.buttons.trial"), NavTrial)),
+		m.Row(
+			m.Data(texts.T("start.buttons.help"), NavHelp),
+			m.Data(texts.T("start.buttons.invite"), NavInvite),
+		),
 	)
-	return menu
+	return m
 }
 
 func SubscriberMenu() *tele.ReplyMarkup {
-	menu := &tele.ReplyMarkup{ResizeKeyboard: true}
-	menu.Reply(
-		menu.Row(menu.Text(texts.T("menu.subscriber.buttons.my_config"))),
-		menu.Row(menu.Text(texts.T("menu.subscriber.buttons.devices")), menu.Text(texts.T("menu.subscriber.buttons.settings"))),
-		menu.Row(menu.Text(texts.T("menu.subscriber.buttons.help")), menu.Text(texts.T("menu.subscriber.buttons.invite"))),
+	m := &tele.ReplyMarkup{}
+	m.Inline(
+		m.Row(m.Data(texts.T("menu.subscriber.buttons.my_config"), NavConfig)),
+		m.Row(
+			m.Data(texts.T("menu.subscriber.buttons.devices"), NavDevices),
+			m.Data(texts.T("menu.subscriber.buttons.settings"), NavSettings),
+		),
+		m.Row(
+			m.Data(texts.T("menu.subscriber.buttons.help"), NavHelp),
+			m.Data(texts.T("menu.subscriber.buttons.invite"), NavInvite),
+		),
 	)
-	return menu
+	return m
 }
 
 func TrialInfo() *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
-	m.Inline(m.Row(m.Data(texts.T("trial.buttons.confirm"), TrialBuy)))
+	m.Inline(
+		m.Row(m.Data(texts.T("trial.buttons.confirm"), TrialBuy)),
+		m.Row(m.Data(texts.T("buttons.back"), Back)),
+	)
+	return m
+}
+
+// HelpKeyboard и InviteKeyboard — одна кнопка «Назад» для информационных экранов.
+func HelpKeyboard() *tele.ReplyMarkup {
+	m := &tele.ReplyMarkup{}
+	m.Inline(m.Row(m.Data(texts.T("buttons.back"), Back)))
+	return m
+}
+
+func InviteKeyboard() *tele.ReplyMarkup {
+	m := &tele.ReplyMarkup{}
+	m.Inline(m.Row(m.Data(texts.T("buttons.back"), Back)))
+	return m
+}
+
+// MyConfigKeyboard — кнопка «Назад» на экране с QR-кодом (фото).
+func MyConfigKeyboard() *tele.ReplyMarkup {
+	m := &tele.ReplyMarkup{}
+	m.Inline(m.Row(m.Data(texts.T("buttons.back"), Back)))
 	return m
 }
 
@@ -112,6 +154,7 @@ func Constructor(s *session.ConstructorState) *tele.ReplyMarkup {
 		),
 		m.Row(monthBtn(1), monthBtn(3), monthBtn(6), monthBtn(12)),
 		m.Row(m.Data(buyLabel, Buy)),
+		m.Row(m.Data(texts.T("buttons.back"), Back)),
 	)
 
 	return m
@@ -146,6 +189,14 @@ func DevicesKeyboard(devices []*models.DeviceConnection) *tele.ReplyMarkup {
 	}
 	rows = append(rows, m.Row(m.Data(texts.T("buttons.back"), Back)))
 	m.Inline(rows...)
+	return m
+}
+
+func ProvisionSuccessKeyboard() *tele.ReplyMarkup {
+	m := &tele.ReplyMarkup{}
+	m.Inline(
+		m.Row(m.Data("📡 Получить конфиг →", ShowConfig)),
+	)
 	return m
 }
 
@@ -191,6 +242,7 @@ func PaymentPending(paymentID string) *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
 	m.Inline(
 		m.Row(m.Data(texts.T("check_payment.buttons.verify"), CheckPayment, paymentID)),
+		m.Row(m.Data(texts.T("buttons.back"), Back)),
 	)
 	return m
 }

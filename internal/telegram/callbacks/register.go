@@ -3,13 +3,23 @@ package callbacks
 import (
 	"vpnbottg/internal/repository"
 	"vpnbottg/internal/service"
+	"vpnbottg/internal/telegram/handlers"
 	"vpnbottg/internal/telegram/keyboard"
 	"vpnbottg/internal/telegram/middleware"
 
 	tele "gopkg.in/telebot.v3"
 )
 
-func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subscription, user *service.User, stats repository.Stats) {
+func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subscription, user *service.User, ref *service.ReferralService, stats repository.Stats) {
+	// Главное меню — inline-навигация. Каждая кнопка делегирует рендеринг хендлеру.
+	bot.Handle(&tele.Btn{Unique: keyboard.NavBuy}, handlers.Constructor)
+	bot.Handle(&tele.Btn{Unique: keyboard.NavTrial}, handlers.TrialStart(payment, sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.NavHelp}, handlers.Help)
+	bot.Handle(&tele.Btn{Unique: keyboard.NavInvite}, handlers.Invite(bot.Me.Username, ref))
+	bot.Handle(&tele.Btn{Unique: keyboard.NavConfig}, handlers.MyConfig(sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.NavDevices}, handlers.Devices(sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.NavSettings}, handlers.Settings(sub))
+
 	bot.Handle(&tele.Btn{Unique: keyboard.GbDec}, GbDec)
 	bot.Handle(&tele.Btn{Unique: keyboard.GbInc}, GbInc)
 
@@ -36,6 +46,7 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 
 	bot.Handle(&tele.Btn{Unique: keyboard.DeleteDevice}, DeleteDevice(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.Back}, BackToMenu(sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.ShowConfig}, ShowConfigCallback(sub))
 
 	adminOnly := middleware.AdminOnly
 	bot.Handle(&tele.Btn{Unique: keyboard.AdminStats}, adminOnly(AdminStatsCallback(stats)))

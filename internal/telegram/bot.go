@@ -21,7 +21,7 @@ func NewBot() (*tele.Bot, error) {
 
 func Run(bot *tele.Bot, payment *service.PaymentService, sub *service.Subscription, user *service.User, ref *service.ReferralService, stats repository.Stats, adminSvc *service.AdminService) {
 	bot.Use(middleware.Dedup)
-	callbacks.Register(bot, payment, sub, user, stats)
+	callbacks.Register(bot, payment, sub, user, ref, stats)
 	commands.Register(bot, sub, ref, payment, user, adminSvc)
 	bot.Start()
 }

@@ -257,7 +257,7 @@ func (h *WebhookHandler) process(ctx context.Context, ykPayment *yookassa.Paymen
 		h.send(tgID, texts.T("error.provision"))
 		return
 	}
-	h.sendHTML(tgID, texts.T("provision.success"))
+	h.sendHTMLWithKeyboard(tgID, texts.T("provision.success"), keyboard.ProvisionSuccessKeyboard())
 	h.sendSubscriberMenu(ctx, tgID)
 	log.Info().Str("sub_url", subURL).Msg("process: ok")
 
@@ -299,6 +299,12 @@ func (h *WebhookHandler) send(userID int64, text string) {
 func (h *WebhookHandler) sendHTML(userID int64, text string) {
 	if _, err := h.bot.Send(&tele.User{ID: userID}, text, &tele.SendOptions{ParseMode: tele.ModeHTML}); err != nil {
 		logger.L().Error().Err(err).Int64("user_id", userID).Msg("webhook: bot sendHTML failed")
+	}
+}
+
+func (h *WebhookHandler) sendHTMLWithKeyboard(userID int64, text string, markup *tele.ReplyMarkup) {
+	if _, err := h.bot.Send(&tele.User{ID: userID}, text, markup, &tele.SendOptions{ParseMode: tele.ModeHTML}); err != nil {
+		logger.L().Error().Err(err).Int64("user_id", userID).Msg("webhook: bot sendHTMLWithKeyboard failed")
 	}
 }
 

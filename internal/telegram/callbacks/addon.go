@@ -146,3 +146,7 @@ func BackToMenu(subSvc *service.Subscription) tele.HandlerFunc {
 		return handlers.Menu(c, subSvc)
 	}
 }
+
+func ShowConfigCallback(subSvc *service.Subscription) tele.HandlerFunc {
+	return handlers.MyConfig(subSvc)
+}
