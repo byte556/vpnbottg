@@ -21,12 +21,12 @@ func Menu(c tele.Context, subSvc *service.Subscription) error {
 }
 
 func GuestMenu(c tele.Context) error {
-	return editOrFresh(c, texts.T("menu.guest.text"), keyboard.GuestMenu())
+	return screen(c, "menu_main", texts.T("menu.guest.text"), keyboard.GuestMenu())
 }
 
 func SubscriberMenu(c tele.Context, sub *models.Subscription) error {
 	daysLeft := max(0, int(time.Until(time.Unix(sub.ExpiresAt, 0)).Hours()/24))
-	return editOrFresh(c,
+	return screen(c, "subscriber",
 		texts.T("menu.subscriber.text", map[string]any{
 			"DaysLeft": daysLeft,
 		}),

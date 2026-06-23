@@ -175,7 +175,7 @@ func SendSettings(c tele.Context, subSvc *service.Subscription) error {
 		"UsedGB":    fmt.Sprintf("%.1f", usedGBFloat),
 		"DaysBar":   daysBar,
 	})
-	return editOrFresh(c, text,
+	return screen(c, "settings", text,
 		keyboard.SettingsKeyboard(sess.AddOnDevices, sess.AddonDevicesPrice()),
 		&tele.SendOptions{ParseMode: tele.ModeHTML},
 	)
@@ -197,7 +197,7 @@ func SendDevices(c tele.Context, subSvc *service.Subscription) error {
 	slotBar := progressBar(len(devices), sub.DeviceLimit, 10)
 
 	if len(devices) == 0 {
-		return editOrFresh(c,
+		return screen(c, "devices",
 			texts.T("subscription.devices_empty", map[string]any{
 				"Limit":   sub.DeviceLimit,
 				"SlotBar": slotBar,
@@ -207,7 +207,7 @@ func SendDevices(c tele.Context, subSvc *service.Subscription) error {
 		)
 	}
 
-	return editOrFresh(c,
+	return screen(c, "devices",
 		texts.T("subscription.devices", map[string]any{
 			"Used":    len(devices),
 			"Limit":   sub.DeviceLimit,

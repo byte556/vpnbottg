@@ -12,7 +12,7 @@ import (
 // in the user's session after a successful InitiatePayment call.
 func PaymentPending(c tele.Context) error {
 	sess := session.GetStore().Get(c.Sender().ID)
-	return c.EditOrSend(
+	return screen(c, "payment",
 		texts.T("payment.pending", map[string]any{"URL": sess.PaymentURL}),
 		keyboard.PaymentPending(sess.PaymentID),
 	)

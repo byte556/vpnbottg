@@ -66,7 +66,7 @@ func TestHandlePage(t *testing.T) {
 		"happ://add/" + wantSubURL: "happ deep link",
 		"data:image/png;base64,":   "embedded QR code",
 		"Активна до":               "active status line",
-		"25.0 / 100.0 ГБ":          "traffic usage",
+		"25.0 ГБ · безлимит":       "traffic usage (unlimited)",
 	}
 	for substr, what := range checks {
 		if !strings.Contains(body, substr) {

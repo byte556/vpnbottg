@@ -41,6 +41,6 @@ func Constructor(c tele.Context) error {
 		"SavingsLine": savingsLine,
 	})
 
-	return editOrFresh(c, text, keyboard.Constructor(&sess.Constructor, final),
+	return screen(c, "buy", text, keyboard.Constructor(&sess.Constructor, final),
 		&tele.SendOptions{ParseMode: tele.ModeHTML})
 }

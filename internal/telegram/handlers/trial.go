@@ -39,7 +39,7 @@ func TrialStart(paymentSvc *service.PaymentService, subSvc *service.Subscription
 		}
 
 		log.Debug().Msg("TrialStart: showing info page")
-		return editOrFresh(c, texts.T("trial.info"), keyboard.TrialInfo())
+		return screen(c, "trial", texts.T("trial.info"), keyboard.TrialInfo())
 	}
 }
 

@@ -14,7 +14,7 @@ import (
 
 // PromoPrompt — экран ввода промокода (после кнопки 🎟 Промокод).
 func PromoPrompt(c tele.Context) error {
-	return editOrFresh(c, texts.T("promo.prompt"), keyboard.PromoPromptKeyboard())
+	return screen(c, "promo", texts.T("promo.prompt"), keyboard.PromoPromptKeyboard())
 }
 
 // PromoDaysSuccess — промокод выдал дни подписки: показываем успех и меню подписчика.
