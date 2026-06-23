@@ -53,6 +53,8 @@ var (
 	NavDevices  = "nav_devices"
 	NavSettings = "nav_settings"
 
+	PromoRedeem = "promo_redeem"
+
 	AdminStats       = "admin_stats"
 	AdminSubs        = "admin_subs"
 	AdminPay         = "admin_pay"
@@ -65,6 +67,7 @@ var (
 	AdminDeleteUser  = "admin_delete_user"
 	AdminCancelInput = "admin_cancel_input"
 	AdminBack        = "admin_back"
+	AdminPromo       = "admin_promo"
 )
 
 // MenuBar — постоянная нижняя кнопка быстрого возврата в меню. Inline-навигация
@@ -81,6 +84,7 @@ func GuestMenu() *tele.ReplyMarkup {
 	m.Inline(
 		m.Row(m.Data(texts.T("start.buttons.buy"), NavBuy)),
 		m.Row(m.Data(texts.T("start.buttons.trial"), NavTrial)),
+		m.Row(m.Data(texts.T("buttons.promo"), PromoRedeem)),
 		m.Row(
 			m.Data(texts.T("start.buttons.help"), NavHelp),
 			m.Data(texts.T("start.buttons.invite"), NavInvite),
@@ -97,6 +101,7 @@ func SubscriberMenu() *tele.ReplyMarkup {
 			m.Data(texts.T("menu.subscriber.buttons.devices"), NavDevices),
 			m.Data(texts.T("menu.subscriber.buttons.settings"), NavSettings),
 		),
+		m.Row(m.Data(texts.T("buttons.promo"), PromoRedeem)),
 		m.Row(
 			m.Data(texts.T("menu.subscriber.buttons.help"), NavHelp),
 			m.Data(texts.T("menu.subscriber.buttons.invite"), NavInvite),
@@ -134,7 +139,14 @@ func MyConfigKeyboard() *tele.ReplyMarkup {
 	return m
 }
 
-func Constructor(s *session.ConstructorState) *tele.ReplyMarkup {
+// PromoPromptKeyboard — экран ввода промокода: одна кнопка «Назад».
+func PromoPromptKeyboard() *tele.ReplyMarkup {
+	m := &tele.ReplyMarkup{}
+	m.Inline(m.Row(m.Data(texts.T("buttons.back"), Back)))
+	return m
+}
+
+func Constructor(s *session.ConstructorState, finalPrice int) *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
 
 	monthBtn := func(n int) tele.Btn {
@@ -153,7 +165,7 @@ func Constructor(s *session.ConstructorState) *tele.ReplyMarkup {
 
 	gbLabel := fmt.Sprintf("%d ГБ", s.GetGB())
 	devLabel := fmt.Sprintf("%d устр.", s.GetDevices())
-	buyLabel := texts.T("constructor.buttons.buy", map[string]any{"Price": s.CalcPrice()})
+	buyLabel := texts.T("constructor.buttons.buy", map[string]any{"Price": finalPrice})
 
 	m.Inline(
 		m.Row(
@@ -236,6 +248,7 @@ func AdminMenu() *tele.ReplyMarkup {
 			m.Data(texts.T("admin.buttons.refund"), AdminRefund),
 			m.Data(texts.T("admin.buttons.delete_user"), AdminDeleteUser),
 		),
+		m.Row(m.Data(texts.T("admin.buttons.promo"), AdminPromo)),
 	)
 	return m
 }

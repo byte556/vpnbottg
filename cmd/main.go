@@ -60,6 +60,7 @@ func main() {
 	)
 	refSvc := service.NewReferralService(db, subSvc, db)
 	adminSvc := service.NewAdminService(db, db, db, db, xuiClient, ykClient, db)
+	promoSvc := service.NewPromoService(db, subSvc, db)
 
 	bot, err := telegram.NewBot()
 	if err != nil {
@@ -78,7 +79,7 @@ func main() {
 	)
 	go reminderSvc.Run(ctx)
 
-	webhookHandler := telegram.NewWebhookHandler(bot, paym, subSvc, userSvc, refSvc)
+	webhookHandler := telegram.NewWebhookHandler(bot, paym, subSvc, userSvc, refSvc, promoSvc)
 	go webhookHandler.StartPoller(ctx)
 
 	port := config.Cfg.YooKassa.WebhookPort
@@ -119,7 +120,7 @@ func main() {
 	}
 
 	// Бот в горутине — останавливается через bot.Stop().
-	go telegram.Run(bot, paym, subSvc, userSvc, refSvc, db, adminSvc)
+	go telegram.Run(bot, paym, subSvc, userSvc, refSvc, db, adminSvc, promoSvc)
 
 	// Ждём SIGTERM или SIGINT.
 	quit := make(chan os.Signal, 1)

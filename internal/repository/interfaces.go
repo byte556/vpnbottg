@@ -66,6 +66,30 @@ type DeviceConnections interface {
 	DeleteDeviceConnectionByID(ctx context.Context, subID string, deviceConnID int64) error
 }
 
+// ErrPromoLimitReached — у промокода исчерпан лимит активаций (used_count >= max_uses) или он неактивен.
+// ErrPromoAlreadyUsed — пользователь уже активировал этот промокод.
+var (
+	ErrPromoLimitReached = errors.New("promo limit reached")
+	ErrPromoAlreadyUsed  = errors.New("promo already used by user")
+)
+
+// PromoCodes — промокоды для розыгрышей (см. models.PromoCode).
+type PromoCodes interface {
+	CreatePromoCode(ctx context.Context, p *models.PromoCode) (int64, error)
+	GetPromoByCode(ctx context.Context, code string) (*models.PromoCode, error)
+	ListPromoCodes(ctx context.Context) ([]*models.PromoCode, error)
+	DeactivatePromoCode(ctx context.Context, code string) error
+	// RedeemPromo атомарно бронирует одну активацию: вставляет redemption (UNIQUE →
+	// ErrPromoAlreadyUsed) и инкрементит used_count при used_count<max_uses AND active
+	// (иначе ErrPromoLimitReached). Обе ошибки — типизированные.
+	RedeemPromo(ctx context.Context, promoID, userID int64) error
+	// ReleasePromo откатывает бронь (удаляет redemption + декрементит used_count),
+	// если выдача награды после RedeemPromo не удалась.
+	ReleasePromo(ctx context.Context, promoID, userID int64) error
+	// HasRedeemed — активировал ли пользователь этот промокод ранее.
+	HasRedeemed(ctx context.Context, promoID, userID int64) (bool, error)
+}
+
 // BotStats — агрегированная статистика для админ панели.
 type BotStats struct {
 	TotalUsers       int

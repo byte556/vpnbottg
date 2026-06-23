@@ -10,7 +10,7 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
-func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subscription, user *service.User, ref *service.ReferralService, stats repository.Stats) {
+func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subscription, user *service.User, ref *service.ReferralService, stats repository.Stats, promo *service.PromoService) {
 	// Главное меню — inline-навигация. Каждая кнопка делегирует рендеринг хендлеру.
 	bot.Handle(&tele.Btn{Unique: keyboard.NavBuy}, handlers.Constructor)
 	bot.Handle(&tele.Btn{Unique: keyboard.NavTrial}, handlers.TrialStart(payment, sub))
@@ -39,7 +39,7 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 	bot.Handle(&tele.Btn{Unique: keyboard.TrialBuy}, TrialBuy(payment, user))
 
 	bot.Handle(&tele.Btn{Unique: keyboard.Buy}, Buy(payment, user))
-	bot.Handle(&tele.Btn{Unique: keyboard.CheckPayment}, CheckPayment(payment, sub, user))
+	bot.Handle(&tele.Btn{Unique: keyboard.CheckPayment}, CheckPayment(payment, sub, user, promo))
 
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevDec}, AddonDevDec(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevInc}, AddonDevInc(sub))
@@ -51,6 +51,7 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 
 	bot.Handle(&tele.Btn{Unique: keyboard.DeleteDevice}, DeleteDevice(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.Back}, BackToMenu(sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.PromoRedeem}, PromoRedeemCallback)
 	bot.Handle(&tele.Btn{Unique: keyboard.ShowConfig}, ShowConfigCallback(sub))
 
 	adminOnly := middleware.AdminOnly
@@ -66,4 +67,5 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 	bot.Handle(&tele.Btn{Unique: keyboard.AdminCancelInput}, adminOnly(AdminCancelInputCallback))
 	bot.Handle(&tele.Btn{Unique: keyboard.AdminReissue}, adminOnly(AdminReissueCallback(payment, sub, user)))
 	bot.Handle(&tele.Btn{Unique: keyboard.AdminBack}, adminOnly(AdminBackCallback))
+	bot.Handle(&tele.Btn{Unique: keyboard.AdminPromo}, adminOnly(AdminPromoCallback(promo)))
 }

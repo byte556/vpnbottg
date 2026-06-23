@@ -7,6 +7,7 @@ import (
 	"strings"
 	"time"
 	"vpnbottg/internal/infra/logger"
+	"vpnbottg/internal/models"
 	"vpnbottg/internal/repository"
 	"vpnbottg/internal/service"
 	"vpnbottg/internal/telegram/handlers"
@@ -18,7 +19,7 @@ import (
 	tele "gopkg.in/telebot.v3"
 )
 
-func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.ReferralService, payment *service.PaymentService, user *service.User, adminSvc *service.AdminService) {
+func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.ReferralService, payment *service.PaymentService, user *service.User, adminSvc *service.AdminService, promoSvc *service.PromoService) {
 	menuHandler := func(c tele.Context) error {
 		return handlers.Menu(c, subSvc)
 	}
@@ -44,6 +45,18 @@ func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.Refer
 
 	// Кнопка «☰ Меню» (постоянная нижняя панель) — быстрый возврат в меню.
 	bot.Handle(texts.T("buttons.menu"), menuHandler)
+
+	// /promo <код> — быстрая активация промокода (альтернатива кнопке «🎟 Промокод»).
+	bot.Handle("/promo", func(c tele.Context) error {
+		code := strings.TrimSpace(c.Message().Payload)
+		if code == "" {
+			sess := session.GetStore().Get(c.Sender().ID)
+			sess.AwaitPromo = true
+			session.GetStore().Save(c.Sender().ID, sess)
+			return handlers.PromoPrompt(c)
+		}
+		return handleRedeemPromo(c, context.Background(), promoSvc, subSvc, code)
+	})
 
 	// Меню теперь inline (см. callbacks.Register / keyboard.GuestMenu+SubscriberMenu).
 	// Эти text-обработчики оставлены как fallback для пользователей, у которых ещё
@@ -73,10 +86,19 @@ func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.Refer
 	// Специфичные текстовые обработчики (меню-кнопки) зарегистрированы выше
 	// и имеют приоритет над tele.OnText.
 	bot.Handle(tele.OnText, func(c tele.Context) error {
+		sess := session.GetStore().Get(c.Sender().ID)
+
+		// Ввод промокода пользователем (после кнопки «🎟 Промокод» или /promo).
+		// Проверяется до админ-ветки: промокоды доступны всем.
+		if sess.AwaitPromo {
+			sess.AwaitPromo = false
+			session.GetStore().Save(c.Sender().ID, sess)
+			return handleRedeemPromo(c, context.Background(), promoSvc, subSvc, strings.TrimSpace(c.Text()))
+		}
+
 		if !middleware.IsAdmin(c) {
 			return nil
 		}
-		sess := session.GetStore().Get(c.Sender().ID)
 		if sess.AdminAction == "" {
 			return nil
 		}
@@ -97,6 +119,8 @@ func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.Refer
 			return handleRefund(c, ctx, adminSvc, input)
 		case "delete_user":
 			return handleDeleteUser(c, ctx, adminSvc, input)
+		case "promo":
+			return handleCreatePromo(c, ctx, promoSvc, input)
 		}
 		return nil
 	})
@@ -163,6 +187,113 @@ func handleRefund(c tele.Context, ctx context.Context, adminSvc *service.AdminSe
 		return c.Send(texts.T("admin.refund.err"))
 	}
 	return c.Send(texts.T("admin.refund.ok", map[string]any{"Amount": amount}))
+}
+
+// handleRedeemPromo активирует промокод от имени пользователя и делегирует рендер хендлеру.
+func handleRedeemPromo(c tele.Context, ctx context.Context, promoSvc *service.PromoService, subSvc *service.Subscription, code string) error {
+	if code == "" {
+		return c.Send(texts.T("promo.empty"))
+	}
+	res, err := promoSvc.Redeem(ctx, c.Sender().ID, code)
+	if err != nil {
+		var key string
+		switch {
+		case errors.Is(err, service.ErrPromoNotFound):
+			key = "promo.err_not_found"
+		case errors.Is(err, service.ErrPromoAlreadyUsed):
+			key = "promo.err_already_used"
+		case errors.Is(err, service.ErrPromoLimitReached):
+			key = "promo.err_limit"
+		case errors.Is(err, service.ErrPromoInactive):
+			key = "promo.err_inactive"
+		case errors.Is(err, service.ErrPromoExpired):
+			key = "promo.err_expired"
+		default:
+			logger.L().Error().Err(err).Str("code", code).Int64("user_id", c.Sender().ID).Msg("redeem promo failed")
+			key = "promo.err_generic"
+		}
+		return c.Send(texts.T(key))
+	}
+
+	if res.Type == service.RedeemTypeDiscount {
+		sess := session.GetStore().Get(c.Sender().ID)
+		sess.PromoCode = res.Code
+		sess.PromoDiscountPct = res.DiscountPct
+		session.GetStore().Save(c.Sender().ID, sess)
+		return handlers.PromoDiscountApplied(c, res)
+	}
+	return handlers.PromoDaysSuccess(c, res, subSvc)
+}
+
+// handleCreatePromo парсит админский ввод и создаёт/деактивирует промокод.
+//
+//	del КОД                              — деактивировать
+//	КОД days <дней> <ГБ> <устр> <лимит>  — код на бесплатные дни
+//	КОД discount <%> <лимит>             — код на скидку
+func handleCreatePromo(c tele.Context, ctx context.Context, promoSvc *service.PromoService, input string) error {
+	html := func(key string, args ...map[string]any) error {
+		return c.Send(texts.T(key, args...), &tele.SendOptions{ParseMode: tele.ModeHTML})
+	}
+
+	fields := strings.Fields(input)
+	if len(fields) < 2 {
+		return html("admin.promo.usage")
+	}
+
+	// del КОД — деактивация.
+	if strings.EqualFold(fields[0], "del") {
+		if err := promoSvc.Deactivate(ctx, fields[1]); err != nil {
+			if errors.Is(err, service.ErrPromoNotFound) {
+				return html("admin.promo.not_found")
+			}
+			logger.L().Error().Err(err).Msg("deactivate promo failed")
+			return html("admin.promo.err")
+		}
+		return html("admin.promo.deleted", map[string]any{"Code": strings.ToUpper(fields[1])})
+	}
+
+	code := strings.ToUpper(fields[0])
+	kind := strings.ToLower(fields[1])
+	p := &models.PromoCode{Code: code, RewardType: kind, Active: true}
+
+	switch kind {
+	case models.PromoRewardDays:
+		if len(fields) != 6 {
+			return html("admin.promo.usage")
+		}
+		days, e1 := strconv.Atoi(fields[2])
+		gb, e2 := strconv.Atoi(fields[3])
+		dev, e3 := strconv.Atoi(fields[4])
+		lim, e4 := strconv.Atoi(fields[5])
+		if e1 != nil || e2 != nil || e3 != nil || e4 != nil {
+			return html("admin.promo.usage")
+		}
+		p.Days, p.GB, p.Devices, p.MaxUses = days, gb, dev, lim
+	case models.PromoRewardDiscount:
+		if len(fields) != 4 {
+			return html("admin.promo.usage")
+		}
+		pct, e1 := strconv.Atoi(fields[2])
+		lim, e2 := strconv.Atoi(fields[3])
+		if e1 != nil || e2 != nil {
+			return html("admin.promo.usage")
+		}
+		p.DiscountPct, p.MaxUses = pct, lim
+	default:
+		return html("admin.promo.usage")
+	}
+
+	if err := promoSvc.Create(ctx, p); err != nil {
+		if errors.Is(err, service.ErrPromoExists) {
+			return html("admin.promo.exists")
+		}
+		if errors.Is(err, service.ErrPromoInvalid) {
+			return html("admin.promo.usage")
+		}
+		logger.L().Error().Err(err).Msg("create promo failed")
+		return html("admin.promo.err")
+	}
+	return html("admin.promo.created", map[string]any{"Code": code})
 }
 
 func handleDeleteUser(c tele.Context, ctx context.Context, adminSvc *service.AdminService, input string) error {

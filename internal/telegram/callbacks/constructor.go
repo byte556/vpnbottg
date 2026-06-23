@@ -72,24 +72,25 @@ func Buy(paymentServ *service.PaymentService, userSvc *service.User) tele.Handle
 			return handlers.PaymentError(c)
 		}
 
-		price := sess.Constructor.CalcPrice()
+		price := sess.ApplyDiscount(sess.Constructor.CalcPrice())
 		description := fmt.Sprintf(
 			"VPN %d ГБ / %d подкл. / %d мес",
 			sess.Constructor.GetGB(),
 			sess.Constructor.GetDevices(),
 			sess.Constructor.GetMonths(),
 		)
-		log.Info().Int("price", price).Str("desc", description).Msg("Buy: initiating payment")
+		log.Info().Int("price", price).Int("promo_pct", sess.PromoDiscountPct).Str("desc", description).Msg("Buy: initiating payment")
 
 		ykPayment, _, err := paymentServ.InitiatePayment(c.Sender().ID, yookassa.CreatePaymentReq{
 			AmountRub:   price,
 			Description: description,
 			SaveMethod:  true,
 			Metadata: map[string]string{
-				"tg_id":    fmt.Sprintf("%d", c.Sender().ID),
-				"total_gb": fmt.Sprintf("%d", sess.Constructor.GetGB()),
-				"devices":  fmt.Sprintf("%d", sess.Constructor.GetDevices()),
-				"months":   fmt.Sprintf("%d", sess.Constructor.GetMonths()),
+				"tg_id":      fmt.Sprintf("%d", c.Sender().ID),
+				"total_gb":   fmt.Sprintf("%d", sess.Constructor.GetGB()),
+				"devices":    fmt.Sprintf("%d", sess.Constructor.GetDevices()),
+				"months":     fmt.Sprintf("%d", sess.Constructor.GetMonths()),
+				"promo_code": sess.PromoCode,
 			},
 		})
 		if err != nil {
@@ -106,7 +107,7 @@ func Buy(paymentServ *service.PaymentService, userSvc *service.User) tele.Handle
 	}
 }
 
-func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *service.User) tele.HandlerFunc {
+func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *service.User, promo *service.PromoService) tele.HandlerFunc {
 	return func(c tele.Context) error {
 		log := logger.L().With().Str("func", "CheckPayment").Int64("user_id", c.Sender().ID).Logger()
 
@@ -130,6 +131,16 @@ func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *s
 		_ = c.Edit(texts.T("payment.processing"))
 
 		ctx := context.Background()
+
+		// Списываем промо-скидку (если была) — идемпотентно, безопасно при повторной проверке.
+		if promo != nil {
+			if code := payment.Metadata["promo_code"]; code != "" {
+				if err := promo.ConsumeDiscount(ctx, c.Sender().ID, code); err != nil {
+					log.Error().Err(err).Str("code", code).Msg("CheckPayment: ConsumeDiscount failed")
+				}
+				clearSessionPromo(c.Sender().ID)
+			}
+		}
 
 		changed, err := yk.Confirm(ctx, payment.ID)
 		if err != nil {

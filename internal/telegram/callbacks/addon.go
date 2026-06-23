@@ -143,6 +143,12 @@ func AddonGBSuccess(c tele.Context, gb int, subSvc *service.Subscription) error 
 
 func BackToMenu(subSvc *service.Subscription) tele.HandlerFunc {
 	return func(c tele.Context) error {
+		// Сбрасываем ожидание ввода промокода, если пользователь передумал.
+		sess := session.GetStore().Get(c.Sender().ID)
+		if sess.AwaitPromo {
+			sess.AwaitPromo = false
+			session.GetStore().Save(c.Sender().ID, sess)
+		}
 		return handlers.Menu(c, subSvc)
 	}
 }

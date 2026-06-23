@@ -55,6 +55,29 @@ type DeviceConnection struct {
 	LastSeen  int64  `repository:"last_seen"`
 }
 
+// PromoCode — промокод для розыгрышей. RewardType определяет, что даёт активация:
+// "days" — бесплатные дни подписки (Days/GB/Devices), "discount" — % скидки (DiscountPct).
+// Один код, много активаций до MaxUses; одна активация на пользователя (promo_redemptions).
+type PromoCode struct {
+	ID          int64  `repository:"id"`
+	Code        string `repository:"code"`
+	RewardType  string `repository:"reward_type"`
+	Days        int    `repository:"days"`
+	GB          int    `repository:"gb"`
+	Devices     int    `repository:"devices"`
+	DiscountPct int    `repository:"discount_pct"`
+	MaxUses     int    `repository:"max_uses"`
+	UsedCount   int    `repository:"used_count"`
+	Active      bool   `repository:"active"`
+	ExpiresAt   *int64 `repository:"expires_at"`
+	CreatedAt   int64  `repository:"created_at"`
+}
+
+const (
+	PromoRewardDays     = "days"
+	PromoRewardDiscount = "discount"
+)
+
 type AuditLog struct {
 	ID        int64  `repository:"id"`
 	UserID    *int64 `repository:"user_id"`
