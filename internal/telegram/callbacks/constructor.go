@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 	"strconv"
-	"vpnbottg/internal/config"
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/service"
 	"vpnbottg/internal/telegram/handlers"
@@ -14,22 +13,6 @@ import (
 	tele "gopkg.in/telebot.v3"
 	yookassa "vpnbottg/internal/client/yookassa"
 )
-
-func GbDec(c tele.Context) error {
-	sess := session.GetStore().Get(c.Sender().ID)
-	sess.PaymentID = ""
-	sess.Constructor.AddGB(-config.Cfg.Bot.Constructor.GBStep)
-	session.GetStore().Save(c.Sender().ID, sess)
-	return handlers.Constructor(c)
-}
-
-func GbInc(c tele.Context) error {
-	sess := session.GetStore().Get(c.Sender().ID)
-	sess.PaymentID = ""
-	sess.Constructor.AddGB(config.Cfg.Bot.Constructor.GBStep)
-	session.GetStore().Save(c.Sender().ID, sess)
-	return handlers.Constructor(c)
-}
 
 func DevicesDec(c tele.Context) error {
 	sess := session.GetStore().Get(c.Sender().ID)
@@ -74,8 +57,7 @@ func Buy(paymentServ *service.PaymentService, userSvc *service.User) tele.Handle
 
 		price := sess.ApplyDiscount(sess.Constructor.CalcPrice())
 		description := fmt.Sprintf(
-			"VPN %d ГБ / %d подкл. / %d мес",
-			sess.Constructor.GetGB(),
+			"VPN %d подкл. / %d мес",
 			sess.Constructor.GetDevices(),
 			sess.Constructor.GetMonths(),
 		)
@@ -87,7 +69,6 @@ func Buy(paymentServ *service.PaymentService, userSvc *service.User) tele.Handle
 			SaveMethod:  true,
 			Metadata: map[string]string{
 				"tg_id":      fmt.Sprintf("%d", c.Sender().ID),
-				"total_gb":   fmt.Sprintf("%d", sess.Constructor.GetGB()),
 				"devices":    fmt.Sprintf("%d", sess.Constructor.GetDevices()),
 				"months":     fmt.Sprintf("%d", sess.Constructor.GetMonths()),
 				"promo_code": sess.PromoCode,
@@ -180,21 +161,9 @@ func provision(c tele.Context, ctx context.Context, meta map[string]string, sub 
 			return handlers.ProvisionError(c)
 		}
 		return AddonSuccess(c, amount, sub)
-	case "gb":
-		amount, _ := strconv.Atoi(meta["amount"])
-		log.Info().Int("gb", amount).Msg("provision: gb addon")
-		if err := sub.AddGB(ctx, c.Sender().ID, amount); err != nil {
-			log.Error().Err(err).Msg("provision: AddGB failed")
-			return handlers.ProvisionError(c)
-		}
-		return AddonGBSuccess(c, amount, sub)
 	}
 
-	totalGB, _ := strconv.Atoi(meta["total_gb"])
 	devices, _ := strconv.Atoi(meta["devices"])
-	if totalGB == 0 {
-		totalGB = 30
-	}
 	if devices == 0 {
 		devices = 1
 	}
@@ -205,8 +174,8 @@ func provision(c tele.Context, ctx context.Context, meta map[string]string, sub 
 		if days <= 0 {
 			days = 30
 		}
-		log.Info().Int("gb", totalGB).Int("devices", devices).Int("days", days).Msg("provision: new subscription (days)")
-		subURL, err := sub.ProvisionFromPaymentDays(ctx, c.Sender().ID, totalGB, devices, days)
+		log.Info().Int("devices", devices).Int("days", days).Msg("provision: new subscription (days)")
+		subURL, err := sub.ProvisionFromPaymentDays(ctx, c.Sender().ID, devices, days)
 		if err != nil {
 			log.Error().Err(err).Msg("provision: ProvisionFromPaymentDays failed")
 			return handlers.ProvisionError(c)
@@ -219,8 +188,8 @@ func provision(c tele.Context, ctx context.Context, meta map[string]string, sub 
 	if months == 0 {
 		months = 1
 	}
-	log.Info().Int("gb", totalGB).Int("devices", devices).Int("months", months).Msg("provision: new subscription")
-	subURL, err := sub.ProvisionFromPayment(ctx, c.Sender().ID, totalGB, devices, months)
+	log.Info().Int("devices", devices).Int("months", months).Msg("provision: new subscription")
+	subURL, err := sub.ProvisionFromPayment(ctx, c.Sender().ID, devices, months)
 	if err != nil {
 		log.Error().Err(err).Msg("provision: ProvisionFromPayment failed")
 		return handlers.ProvisionError(c)

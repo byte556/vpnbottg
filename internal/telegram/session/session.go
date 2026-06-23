@@ -7,29 +7,16 @@ import (
 )
 
 type ConstructorState struct {
-	gb      int
 	devices int
 	months  int
 }
 
-func (s *ConstructorState) GetGB() int      { return s.gb }
 func (s *ConstructorState) GetDevices() int { return s.devices }
 func (s *ConstructorState) GetMonths() int  { return s.months }
 
 func (s *ConstructorState) SetMonths(m int) { s.months = m }
 
-func (s *ConstructorState) AddGB(step int) {
-	s.gb += step
-	minGB := config.Cfg.Bot.Constructor.MinGB
-	if minGB <= 0 {
-		minGB = 10
-	}
-	if s.gb < minGB {
-		s.gb = minGB
-	}
-}
-
-// AddDevices изменяет число устройств. Трафик (GB) управляется независимо.
+// AddDevices изменяет число устройств.
 func (s *ConstructorState) AddDevices(v int) {
 	s.devices += v
 	if s.devices < 1 {
@@ -37,14 +24,14 @@ func (s *ConstructorState) AddDevices(v int) {
 	}
 }
 
-// CalcPrice: (GB × цена_за_ГБ + устройства × цена_за_устройство) × месяцы × скидка
+// CalcPrice: устройства × цена_за_устройство × месяцы × скидка
 func (s *ConstructorState) CalcPrice() int {
 	cfg := config.Cfg.Bot.Constructor
 	discount, ok := cfg.MonthDiscounts[s.months]
 	if !ok {
 		discount = 1.0
 	}
-	base := float64(s.gb)*float64(cfg.PricePerGB) + float64(s.devices)*float64(cfg.PricePerDevice)
+	base := float64(s.devices) * float64(cfg.PricePerDevice)
 	return int(math.Round(base * float64(s.months) * discount))
 }
 
@@ -70,7 +57,7 @@ func (s *ConstructorState) CalcPricePerDay() int {
 // CalcSavings — сколько экономит по сравнению с ежемесячной оплатой без скидки.
 func (s *ConstructorState) CalcSavings() int {
 	cfg := config.Cfg.Bot.Constructor
-	base := float64(s.gb)*float64(cfg.PricePerGB) + float64(s.devices)*float64(cfg.PricePerDevice)
+	base := float64(s.devices) * float64(cfg.PricePerDevice)
 	fullPrice := base * float64(s.months) // без скидки
 	return int(math.Round(fullPrice - float64(s.CalcPrice())))
 }
@@ -82,7 +69,6 @@ type Session struct {
 	PaymentURL   string
 	Constructor  ConstructorState
 	AddOnDevices int
-	AddOnGB      int
 	AdminAction  string
 
 	// Промокод-скидка, применённая к покупке в конструкторе (списывается после оплаты).
@@ -104,10 +90,6 @@ func (s *Session) AddonDevicesPrice() int {
 	return s.AddOnDevices * config.Cfg.Bot.Constructor.PricePerDevice
 }
 
-func (s *Session) AddonGBPrice() int {
-	return s.AddOnGB * config.Cfg.Bot.Constructor.PricePerGB
-}
-
 type Store struct {
 	mu   sync.Mutex
 	data map[int64]*Session
@@ -124,18 +106,12 @@ func (s *Store) Get(tgID int64) Session {
 		return *sess
 	}
 	cfg := config.Cfg.Bot.Constructor
-	defaultGB := cfg.DefaultGB
-	if defaultGB <= 0 {
-		defaultGB = 30
-	}
 	def := Session{
 		Constructor: ConstructorState{
-			gb:      defaultGB,
 			devices: max(1, cfg.DefaultDevices),
 			months:  1,
 		},
 		AddOnDevices: 1,
-		AddOnGB:      max(10, cfg.GBStep),
 	}
 	s.data[tgID] = &def
 	return def

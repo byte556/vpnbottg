@@ -57,7 +57,7 @@ func (s *PromoService) Create(ctx context.Context, p *models.PromoCode) error {
 	}
 	switch p.RewardType {
 	case models.PromoRewardDays:
-		if p.Days < 1 || p.GB < 1 || p.Devices < 1 {
+		if p.Days < 1 || p.Devices < 1 {
 			return ErrPromoInvalid
 		}
 	case models.PromoRewardDiscount:
@@ -150,7 +150,7 @@ func (s *PromoService) Redeem(ctx context.Context, userID int64, code string) (*
 			}
 			return nil, err
 		}
-		subURL, err := s.subs.ProvisionFromPaymentDays(ctx, userID, p.GB, p.Devices, p.Days)
+		subURL, err := s.subs.ProvisionFromPaymentDays(ctx, userID, p.Devices, p.Days)
 		if err != nil {
 			if relErr := s.promos.ReleasePromo(ctx, p.ID, userID); relErr != nil {
 				log.Error().Err(relErr).Msg("Redeem: ReleasePromo failed after provision error")

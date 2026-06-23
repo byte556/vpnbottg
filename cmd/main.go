@@ -55,7 +55,6 @@ func main() {
 	subSvc := service.NewSubscriptionService(
 		db, db, db, xuiClient,
 		config.Cfg.XUI.InboundsDirect,
-		config.Cfg.XUI.InboundsRelay,
 		config.Cfg.XUI.SubURLTemplate,
 	)
 	refSvc := service.NewReferralService(db, subSvc, db)
@@ -72,7 +71,7 @@ func main() {
 	defer cancel()
 
 	reminderSvc := service.NewReminderService(
-		db, xuiClient, config.Cfg.XUI.InboundsRelay,
+		db, xuiClient,
 		func(userID int64, text string) {
 			bot.Send(&tele.User{ID: userID}, text)
 		},

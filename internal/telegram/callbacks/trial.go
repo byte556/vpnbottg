@@ -37,14 +37,13 @@ func TrialBuy(paymentSvc *service.PaymentService, userSvc *service.User) tele.Ha
 		cfg := config.Cfg.Bot.Constructor.Trial
 		ykPayment, _, err := paymentSvc.InitiatePayment(c.Sender().ID, yookassa.CreatePaymentReq{
 			AmountRub:   cfg.PriceRub,
-			Description: fmt.Sprintf("Пробный VPN %d ГБ / %d уст. / %d дней", cfg.GB, cfg.Devices, cfg.Days),
+			Description: fmt.Sprintf("Пробный VPN %d уст. / %d дней", cfg.Devices, cfg.Days),
 			SaveMethod:  false,
 			Metadata: map[string]string{
-				"tg_id":    fmt.Sprintf("%d", c.Sender().ID),
-				"total_gb": fmt.Sprintf("%d", cfg.GB),
-				"devices":  fmt.Sprintf("%d", cfg.Devices),
-				"days":     fmt.Sprintf("%d", cfg.Days),
-				"trial":    "true",
+				"tg_id":   fmt.Sprintf("%d", c.Sender().ID),
+				"devices": fmt.Sprintf("%d", cfg.Devices),
+				"days":    fmt.Sprintf("%d", cfg.Days),
+				"trial":   "true",
 			},
 		})
 		if err != nil {

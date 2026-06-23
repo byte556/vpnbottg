@@ -22,11 +22,7 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 
 	// Кнопки-подписи (значение по центру ряда ➕/➖) — гасим спиннер, ничего не меняем.
 	noop := func(c tele.Context) error { return c.Respond() }
-	bot.Handle(&tele.Btn{Unique: keyboard.NoopGB}, noop)
 	bot.Handle(&tele.Btn{Unique: keyboard.NoopDev}, noop)
-
-	bot.Handle(&tele.Btn{Unique: keyboard.GbDec}, GbDec)
-	bot.Handle(&tele.Btn{Unique: keyboard.GbInc}, GbInc)
 
 	bot.Handle(&tele.Btn{Unique: keyboard.DevicesDec}, DevicesDec)
 	bot.Handle(&tele.Btn{Unique: keyboard.DevicesInc}, DevicesInc)
@@ -44,10 +40,6 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevDec}, AddonDevDec(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevInc}, AddonDevInc(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.BuyAddonDev}, BuyAddonDevice(payment, user))
-
-	bot.Handle(&tele.Btn{Unique: keyboard.AddonGBDec}, AddonGBDec(sub))
-	bot.Handle(&tele.Btn{Unique: keyboard.AddonGBInc}, AddonGBInc(sub))
-	bot.Handle(&tele.Btn{Unique: keyboard.BuyAddonGB}, BuyAddonGB(payment, user))
 
 	bot.Handle(&tele.Btn{Unique: keyboard.DeleteDevice}, DeleteDevice(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.Back}, BackToMenu(sub))

@@ -102,19 +102,15 @@ func AdminReissueCallback(paym *service.PaymentService, sub *service.Subscriptio
 			amount, _ := strconv.Atoi(meta["amount"])
 			provErr = sub.AddDevice(ctx, tgID, amount)
 		} else {
-			totalGB, _ := strconv.Atoi(meta["total_gb"])
 			devices, _ := strconv.Atoi(meta["devices"])
 			months, _ := strconv.Atoi(meta["months"])
-			if totalGB == 0 {
-				totalGB = 30
-			}
 			if devices == 0 {
 				devices = 1
 			}
 			if months == 0 {
 				months = 1
 			}
-			_, provErr = sub.ProvisionFromPayment(ctx, tgID, totalGB, devices, months)
+			_, provErr = sub.ProvisionFromPayment(ctx, tgID, devices, months)
 		}
 		if provErr != nil {
 			log.Error().Err(provErr).Int64("target_user", tgID).Msg("AdminReissue: provision failed")

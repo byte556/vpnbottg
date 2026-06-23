@@ -13,7 +13,7 @@
 [trial]
 info = """🎁 Попробуй VPN — 7 дней за 49 ₽
 
-📦 15 ГБ трафика
+📦 Безлимитный трафик
 📱 1 подключение
 🗓 7 дней
 
@@ -52,7 +52,7 @@ Instagram, YouTube, Spotify — всё работает.
 [menu.subscriber]
 text = """✅ Твой VPN работает
 
-📦 Трафик: {{.TrafficGB}} ГБ
+📦 Трафик: безлимит
 📅 Осталось: {{.DaysLeft}} дней
 
 Ты в безопасности 🔒"""
@@ -70,7 +70,7 @@ invite    = "👥 Пригласить"
 [constructor]
 text = """💎 Настрой тариф
 
-📦 {{.GB}} ГБ трафика
+📦 Безлимитный трафик
 📱 {{.Devices}} подключений (макс. одновременно)
 🗓 {{.Months}} мес
 
@@ -112,7 +112,7 @@ success = """🎉 VPN активирован!
 
 my_config = """<b>📡 Мой конфиг</b>
 
-📦 {{.UsedGB}} / {{.TrafficGB}} ГБ  ·  📱 {{.Devices}} устр.  ·  📅 {{.DaysLeft}} дн.
+📦 {{.UsedGB}} ГБ · безлимит  ·  📱 {{.Devices}} устр.  ·  📅 {{.DaysLeft}} дн.
 
 Ссылка для <b>Happ</b>:
 <code>{{.URL}}</code>
@@ -161,8 +161,7 @@ device_deleted = "✅ Устройство удалено. Слот свобод
 [settings]
 text = """<b>⚙️ Мой тариф</b>
 ──────────────────
-📦 Трафик
-{{.TrafficBar}}  {{.UsedGB}} / {{.TrafficGB}} ГБ
+📦 Трафик: {{.UsedGB}} ГБ · безлимит
 
 ⏳ Подписка
 {{.DaysBar}}  {{.DaysLeft}} дн. · до {{.ExpiresAt}}
@@ -183,7 +182,6 @@ device = """📱 Добавить устройство
 Станет: {{.NewDevices}} устр."""
 
 device_success = "✅ Готово! Добавлено {{.Devices}} устр."
-gb_success     = "✅ Готово! Добавлено {{.GB}} ГБ трафика."
 
 
 # ─── Напоминалки ─────────────────────────────────────────────────────────────
@@ -242,7 +240,7 @@ empty  = "❌ Пустой промокод. Попробуй ещё раз."
 
 days_success = """🎉 Промокод активирован!
 
-Тебе начислено: <b>{{.Days}} дн.</b> · {{.GB}} ГБ · {{.Devices}} устр.
+Тебе начислено: <b>{{.Days}} дн.</b> · {{.Devices}} устр.
 Конфиг VPN готов 👇"""
 
 discount_applied = "🎉 Скидка <b>{{.Pct}}%</b> по промокоду <code>{{.Code}}</code> применена!\n\nВыбери параметры подписки — цена уже со скидкой."
@@ -305,7 +303,7 @@ done    = "✅ Рассылка завершена\n\nОтправлено: {{.S
 usage     = "🔍 Использование: /finduser <@username или tg_id>"
 not_found = "❌ Пользователь не найден"
 no_sub    = "Подписка: нет"
-sub_active = "✅ Активна {{.DaysLeft}} дн. · {{.TrafficGB}} ГБ · {{.DeviceLimit}} устр."
+sub_active = "✅ Активна {{.DaysLeft}} дн. · {{.DeviceLimit}} устр."
 result = """👤 Пользователь
 
 TG ID: {{.TgID}}
@@ -335,8 +333,8 @@ text = """🎟 Промокоды
 {{.List}}
 
 <b>Создать код на дни:</b>
-<code>КОД days дней ГБ устр лимит</code>
-напр. <code>GIFT days 30 50 2 100</code>
+<code>КОД days дней устр лимит</code>
+напр. <code>GIFT days 30 2 100</code>
 
 <b>Создать код на скидку:</b>
 <code>КОД discount % лимит</code>
@@ -347,7 +345,7 @@ text = """🎟 Промокоды
 
 Отправь команду сообщением 👇"""
 empty     = "Пока нет ни одного промокода."
-usage     = "❌ Неверный формат. Примеры:\n<code>GIFT days 30 50 2 100</code>\n<code>SALE discount 50 100</code>\n<code>del GIFT</code>"
+usage     = "❌ Неверный формат. Примеры:\n<code>GIFT days 30 2 100</code>\n<code>SALE discount 50 100</code>\n<code>del GIFT</code>"
 created   = "✅ Промокод <code>{{.Code}}</code> создан"
 deleted   = "✅ Промокод <code>{{.Code}}</code> деактивирован"
 exists    = "❌ Промокод с таким кодом уже существует"

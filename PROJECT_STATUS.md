@@ -13,11 +13,11 @@
 
 ✅ **Реализовано:**
 - Управление пользователями (регистрация, профиль)
-- Конструктор подписок (выбор GB, устройств, месяцев)
-- Система расчета цены (с учетом скидок за месяцы)
+- Конструктор подписок (выбор устройств и месяцев; трафик безлимитный)
+- Система расчета цены (по устройствам, с учетом скидок за месяцы)
 - Интеграция с YooKassa (инициирование платежей, вебхуки)
 - Интеграция с 3X-UI для provisioning VPN
-- Система подписок (создание, продление, контроль трафика)
+- Система подписок (создание, продление; трафик безлимитный на всех inbound'ах)
 - Реферальная система (отслеживание рефереров)
 - Логирование всех действий в audit_log
 - Напоминания об истечении подписки
@@ -64,7 +64,7 @@ Database (SQLite3 WAL mode)
 
 #### 3. **internal/service/** — Бизнес-логика
 - `payment.go` — Инициирование платежей, подтверждение
-- `subscription.go` — Создание, продление, контроль трафика подписок
+- `subscription.go` — Создание, продление подписок (трафик безлимитный)
 - `user.go` — Управление пользователями
 - `referral.go` — Реферальная система
 - `admin.go` — Admin-команды
@@ -84,7 +84,7 @@ Database (SQLite3 WAL mode)
 - `addon.go`, `trial.go`, `help.go` — Дополнительные экраны
 
 #### 6. **internal/telegram/callbacks/** — Кнопки (inline)
-- `constructor.go` — Кнопки ➕/➖ для GB, устройств, месяцев
+- `constructor.go` — Кнопки ➕/➖ для устройств и выбор месяцев
 - `devices.go` — Управление устройствами
 - `trial.go` — Trial-подписка
 - `admin.go` — Admin-кнопки
@@ -123,7 +123,7 @@ xui_email_direct (TEXT) — Email в 3X-UI (direct inbound)
 xui_email_relay (TEXT) — Email в 3X-UI (relay inbound)
 xui_sub_id (TEXT) — ID подписки в 3X-UI
 bypass (BOOL) — Поддерживает ли bypass-режим
-traffic_gb (INT) — Лимит трафика в GB
+traffic_gb (INT) — Устарело: всегда 0 (трафик безлимитный); колонка оставлена для совместимости
 device_limit (INT) — Макс. одновременных устройств
 started_at (INT) — Начало подписки
 expires_at (INT) — Истечение подписки
@@ -185,9 +185,9 @@ applied_at (INT)
 
 ### 1. Инициирование платежа
 1. Пользователь вводит `/start` → видит главное меню
-2. Нажимает "💳 Купить подписку"
-3. Переходит в конструктор (выбирает GB, устройства, месяцы)
-4. Видит цену: `(base_mult × GB + fix_price) × devices × months × discount[months]`
+2. Нажимает "🚀 Купить VPN"
+3. Переходит в конструктор (выбирает устройства и месяцы; трафик безлимитный)
+4. Видит цену: `devices × price_per_device × months × discount[months]`
 5. Нажимает "Оплатить"
 6. `PaymentService.InitiatePayment()` → создает платеж в YooKassa
 7. БД получает запись с `status: pending`
@@ -214,23 +214,22 @@ applied_at (INT)
 
 ### Расчет цены
 ```go
-price = (config.BasePricePerGB × planGB + config.FixPrice) × deviceLimit × months × monthDiscount[months]
+price = devices × config.PricePerDevice × months × monthDiscount[months]
 ```
+Трафик безлимитный, в цене не участвует (см. `session.ConstructorState.CalcPrice`).
 
 **Параметры из config.yaml:**
 ```yaml
 bot:
   constructor:
-    fix_price: 50         # 50 RUB фиксированная часть
-    base_multiplier: 1.0  # 1 RUB за 1 GB
-    plan_gb_step: 10      # Шаг увеличения GB
-    plan_gb_min: 30       # Минимум GB
-    plan_gb_max: 500      # Максимум GB
+    price_per_device: 30  # RUB за устройство в месяц
+    devices_step: 1       # Шаг изменения числа устройств
+    default_devices: 1    # Стартовое число устройств в конструкторе
     month_discounts:
-      1: 1.0              # Скидка за 1 месяц = нет
-      3: 0.9              # Скидка за 3 месяца = -10%
-      6: 0.8              # Скидка за 6 месяцев = -20%
-      12: 0.54            # Скидка за 12 месяцев = -46%
+      1: 1.00             # Скидка за 1 месяц = нет
+      3: 0.85             # Скидка за 3 месяца = -15%
+      6: 0.75             # Скидка за 6 месяцев = -25%
+      12: 0.55            # Скидка за 12 месяцев = -45%
 ```
 
 ---
@@ -449,16 +448,14 @@ bot:
   token: "YOUR_TELEGRAM_BOT_TOKEN"
   admin_id: 123456789
   constructor:
-    fix_price: 50
-    base_multiplier: 1.0
-    plan_gb_step: 10
-    plan_gb_min: 30
-    plan_gb_max: 500
+    price_per_device: 30
+    devices_step: 1
+    default_devices: 1
     month_discounts:
-      1: 1.0
-      3: 0.9
-      6: 0.8
-      12: 0.54
+      1: 1.00
+      3: 0.85
+      6: 0.75
+      12: 0.55
 
 yookassa:
   shop_id: "YOUR_SHOP_ID"
@@ -530,12 +527,11 @@ logging:
   - 🔗 Реферальная ссылка
   - ❓ Помощь
 
-💳 Купить подписку
-→ Конструктор
-  GB: [⬅️ 30 ➡️]
+🚀 Купить VPN
+→ Конструктор (трафик безлимитный)
   Devices: [⬅️ 1 ➡️]
   Months: [⬅️ 1 ➡️]
-  Цена: 1500 RUB
+  Цена: 30 RUB
   
 [Оплатить]
 → Отправка URL на оплату YooKassa

@@ -17,7 +17,6 @@ type Subscription struct {
 	audit          repository.Audit
 	xui            *xui.Client
 	inboundsDirect []int
-	inboundsRelay  []int
 	subURLTemplate string
 }
 
@@ -26,7 +25,7 @@ func NewSubscriptionService(
 	devices repository.DeviceConnections,
 	audit repository.Audit,
 	xui *xui.Client,
-	inboundsDirect, inboundsRelay []int,
+	inboundsDirect []int,
 	subURLTemplate string,
 ) *Subscription {
 	return &Subscription{
@@ -35,55 +34,38 @@ func NewSubscriptionService(
 		audit:          audit,
 		xui:            xui,
 		inboundsDirect: inboundsDirect,
-		inboundsRelay:  inboundsRelay,
 		subURLTemplate: subURLTemplate,
 	}
 }
 
-func (s *Subscription) Create(ctx context.Context, userID int64, planDays, trafficGB, deviceLimit int) (*models.Subscription, error) {
+func (s *Subscription) Create(ctx context.Context, userID int64, planDays, deviceLimit int) (*models.Subscription, error) {
 	log := logger.L().With().Int64("user_id", userID).Logger()
 
 	now := time.Now()
 	expiresAt := now.AddDate(0, 0, planDays)
 	email := fmt.Sprintf("u%d", userID)
-	emailRelay := email + "r"
 
-	// Direct: безлимит трафика (totalGB=0), inbounds=[1,4].
+	// Один клиент на direct inbound'ах, безлимит трафика (totalGB=0).
 	// subID не передаём — панель сгенерирует свой.
 	if err := s.xui.AddClient(ctx, email, 0, expiresAt, deviceLimit, s.inboundsDirect, ""); err != nil {
-		log.Error().Err(err).Msg("createSubscription: xui addClient direct failed")
+		log.Error().Err(err).Msg("createSubscription: xui addClient failed")
 		return nil, fmt.Errorf("createSubscription: %w", err)
 	}
 
-	// Получаем subId direct-клиента — он станет общим subId всей подписки.
+	// Получаем subId клиента — он станет subId подписки.
 	directClient, err := s.xui.GetClient(ctx, email)
 	if err != nil {
-		log.Error().Err(err).Msg("createSubscription: xui getClient direct failed")
+		log.Error().Err(err).Msg("createSubscription: xui getClient failed")
 		return nil, fmt.Errorf("createSubscription get client: %w", err)
-	}
-
-	// Relay: С ограничением трафика (totalGB=trafficGB), inbounds=[3,6].
-	// Тоже без subID при создании (панель отклоняет дубль subId на /add).
-	// После создания выставляем relay общий subId direct'а через /update —
-	// тогда subscription-сервер отдаёт оба клиента в одной ссылке.
-	if len(s.inboundsRelay) > 0 {
-		if err := s.xui.AddClient(ctx, emailRelay, trafficGB, expiresAt, deviceLimit, s.inboundsRelay, ""); err != nil {
-			log.Error().Err(err).Msg("createSubscription: xui addClient relay failed")
-			return nil, fmt.Errorf("createSubscription relay: %w", err)
-		}
-		if err := s.xui.SetClientSubID(ctx, emailRelay, directClient.SubID); err != nil {
-			log.Error().Err(err).Msg("createSubscription: xui setClientSubID relay failed")
-			return nil, fmt.Errorf("createSubscription relay subid: %w", err)
-		}
 	}
 
 	sub := &models.Subscription{
 		UserID:         userID,
-		XUIEmailDirect: email,      // безлимит
-		XUIEmailRelay:  emailRelay, // с лимитом трафика
+		XUIEmailDirect: email, // безлимит
+		XUIEmailRelay:  "",    // relay не используется — один клиент
 		XUISubID:       directClient.SubID,
 		Bypass:         false,
-		TrafficGB:      trafficGB,
+		TrafficGB:      0, // безлимит
 		DeviceLimit:    deviceLimit,
 		StartedAt:      now.Unix(),
 		ExpiresAt:      expiresAt.Unix(),
@@ -95,14 +77,14 @@ func (s *Subscription) Create(ctx context.Context, userID int64, planDays, traff
 	}
 	sub.ID = id
 
-	_ = s.audit.Log(ctx, &userID, "subscription_created", fmt.Sprintf(`{"sub_id":%d,"xui_sub_id":%q,"days":%d,"traffic_gb":%d}`, id, directClient.SubID, planDays, trafficGB))
+	_ = s.audit.Log(ctx, &userID, "subscription_created", fmt.Sprintf(`{"sub_id":%d,"xui_sub_id":%q,"days":%d}`, id, directClient.SubID, planDays))
 
 	log.Info().Int64("sub_id", id).Int("days", planDays).Msg("createSubscription: ok")
 	return sub, nil
 }
 
 // Renew продлевает подписку — обновляет xui и expires_at в db.
-func (s *Subscription) Renew(ctx context.Context, userID int64, addDays, trafficGB int) error {
+func (s *Subscription) Renew(ctx context.Context, userID int64, addDays int) error {
 	log := logger.L().With().Int64("user_id", userID).Logger()
 
 	sub, err := s.subs.GetActiveSubscription(ctx, userID)
@@ -115,18 +97,10 @@ func (s *Subscription) Renew(ctx context.Context, userID int64, addDays, traffic
 
 	newExpiry := time.Unix(sub.ExpiresAt, 0).AddDate(0, 0, addDays)
 
-	// Direct: безлимит трафика
+	// Безлимит трафика
 	if err := s.xui.UpdateClientByEmail(ctx, sub.XUIEmailDirect, 0, newExpiry); err != nil {
-		log.Error().Err(err).Msg("renew: xui update direct failed")
+		log.Error().Err(err).Msg("renew: xui update failed")
 		return fmt.Errorf("renew: %w", err)
-	}
-
-	// Relay: с ограничением трафика
-	if len(s.inboundsRelay) > 0 {
-		if err := s.xui.UpdateClientByEmail(ctx, sub.XUIEmailRelay, trafficGB, newExpiry); err != nil {
-			log.Error().Err(err).Msg("renew: xui update relay failed")
-			return fmt.Errorf("renew relay: %w", err)
-		}
 	}
 
 	if err := s.subs.UpdateSubscriptionExpiry(ctx, sub.ID, newExpiry.Unix()); err != nil {
@@ -179,12 +153,7 @@ func (s *Subscription) AddDevice(ctx context.Context, userID int64, addDevices i
 
 	// Меняем только лимит подключений (addGB = 0), трафик остаётся прежним.
 	if err := s.xui.AddClientCapacity(ctx, sub.XUIEmailDirect, 0, addDevices); err != nil {
-		return fmt.Errorf("addDevice: xui direct: %w", err)
-	}
-	if sub.XUIEmailRelay != "" && len(s.inboundsRelay) > 0 {
-		if err := s.xui.AddClientCapacity(ctx, sub.XUIEmailRelay, 0, addDevices); err != nil {
-			return fmt.Errorf("addDevice: xui relay: %w", err)
-		}
+		return fmt.Errorf("addDevice: xui: %w", err)
 	}
 	if err := s.subs.UpdateSubscriptionDevices(ctx, sub.ID, newDevices, sub.TrafficGB); err != nil {
 		return fmt.Errorf("addDevice: db: %w", err)
@@ -236,27 +205,6 @@ func (s *Subscription) DeleteDevice(ctx context.Context, userID int64, deviceCon
 	return nil
 }
 
-// AddGB добавляет ГБ трафика к активной подписке.
-func (s *Subscription) AddGB(ctx context.Context, userID int64, addGB int) error {
-	sub, err := s.subs.GetActiveSubscription(ctx, userID)
-	if err != nil {
-		return fmt.Errorf("addGB: %w", err)
-	}
-	newGB := sub.TrafficGB + addGB
-	// Трафик добавляется только к relay клиенту
-	if sub.XUIEmailRelay != "" && len(s.inboundsRelay) > 0 {
-		if err := s.xui.AddClientCapacity(ctx, sub.XUIEmailRelay, addGB, 0); err != nil {
-			return fmt.Errorf("addGB: xui relay: %w", err)
-		}
-	}
-	if err := s.subs.UpdateSubscriptionDevices(ctx, sub.ID, sub.DeviceLimit, newGB); err != nil {
-		return fmt.Errorf("addGB: db: %w", err)
-	}
-	_ = s.audit.Log(ctx, &userID, "addon_gb",
-		fmt.Sprintf(`{"sub_id":%d,"add_gb":%d,"new_gb":%d}`, sub.ID, addGB, newGB))
-	return nil
-}
-
 // ExtendExpiry добавляет дни к активной подписке без изменения трафика.
 // Используется для реферального вознаграждения.
 func (s *Subscription) ExtendExpiry(ctx context.Context, userID int64, addDays int) error {
@@ -272,17 +220,10 @@ func (s *Subscription) ExtendExpiry(ctx context.Context, userID int64, addDays i
 
 	newExpiry := time.Unix(sub.ExpiresAt, 0).AddDate(0, 0, addDays)
 
-	// Direct: безлимит трафика
+	// Безлимит трафика
 	if err := s.xui.UpdateClientByEmail(ctx, sub.XUIEmailDirect, 0, newExpiry); err != nil {
-		log.Error().Err(err).Msg("extendExpiry: xui direct failed")
+		log.Error().Err(err).Msg("extendExpiry: xui failed")
 		return fmt.Errorf("extendExpiry: %w", err)
-	}
-	// Relay: сохраняем текущее ограничение трафика
-	if sub.XUIEmailRelay != "" && len(s.inboundsRelay) > 0 {
-		if err := s.xui.UpdateClientByEmail(ctx, sub.XUIEmailRelay, sub.TrafficGB, newExpiry); err != nil {
-			log.Error().Err(err).Msg("extendExpiry: xui relay failed")
-			return fmt.Errorf("extendExpiry relay: %w", err)
-		}
 	}
 	if err := s.subs.UpdateSubscriptionExpiry(ctx, sub.ID, newExpiry.Unix()); err != nil {
 		return fmt.Errorf("extendExpiry: db: %w", err)
@@ -293,14 +234,14 @@ func (s *Subscription) ExtendExpiry(ctx context.Context, userID int64, addDays i
 	return nil
 }
 
-// GetTrafficUsedGB возвращает использованный трафик реле в ГБ.
+// GetTrafficUsedGB возвращает использованный трафик в ГБ.
 // Возвращает 0 без ошибки если подписки нет или XUI недоступен.
 func (s *Subscription) GetTrafficUsedGB(ctx context.Context, userID int64) float64 {
 	sub, err := s.subs.GetActiveSubscription(ctx, userID)
 	if err != nil {
 		return 0
 	}
-	t, err := s.xui.GetClientTraffic(ctx, sub.XUIEmailRelay)
+	t, err := s.xui.GetClientTraffic(ctx, sub.XUIEmailDirect)
 	if err != nil {
 		return 0
 	}
@@ -313,17 +254,17 @@ func (s *Subscription) GetTrafficUsedGB(ctx context.Context, userID int64) float
 func (s *Subscription) ProvisionFromPaymentDays(
 	ctx context.Context,
 	userID int64,
-	planGB, devices, days int,
+	devices, days int,
 ) (string, error) {
 	log := logger.L().With().Int64("user_id", userID).Logger()
 
 	_, err := s.GetActive(ctx, userID)
 	if err == nil {
-		if err := s.Renew(ctx, userID, days, planGB); err != nil {
+		if err := s.Renew(ctx, userID, days); err != nil {
 			return "", fmt.Errorf("provisionFromPaymentDays: renew failed: %w", err)
 		}
 	} else if errors.Is(err, repository.ErrNotFound) {
-		if _, err := s.Create(ctx, userID, days, planGB, devices); err != nil {
+		if _, err := s.Create(ctx, userID, days, devices); err != nil {
 			return "", fmt.Errorf("provisionFromPaymentDays: create failed: %w", err)
 		}
 	} else {
@@ -351,7 +292,7 @@ func (s *Subscription) ProvisionFromPaymentDays(
 func (s *Subscription) ProvisionFromPayment(
 	ctx context.Context,
 	userID int64,
-	planGB, devices, months int,
+	devices, months int,
 ) (string, error) {
 	log := logger.L().With().Int64("user_id", userID).Logger()
 
@@ -359,11 +300,11 @@ func (s *Subscription) ProvisionFromPayment(
 	_, err := s.GetActive(ctx, userID)
 
 	if err == nil {
-		if err := s.Renew(ctx, userID, planDays, planGB); err != nil {
+		if err := s.Renew(ctx, userID, planDays); err != nil {
 			return "", fmt.Errorf("provisionFromPayment: renew failed: %w", err)
 		}
 	} else if errors.Is(err, repository.ErrNotFound) {
-		_, err := s.Create(ctx, userID, planDays, planGB, devices)
+		_, err := s.Create(ctx, userID, planDays, devices)
 		if err != nil {
 			return "", fmt.Errorf("provisionFromPayment: create failed: %w", err)
 		}

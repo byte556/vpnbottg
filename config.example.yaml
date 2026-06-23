@@ -4,7 +4,7 @@ bot:
   support: "@support"   # username поддержки
   constructor:
     devices_step: 1
-    price_per_gb: 20
+    price_per_device: 150   # ₽/устройство/месяц
     default_devices: 3
     month_discounts:
       1:  1.00
@@ -23,7 +23,6 @@ xui:
   path: ""
   token: "YOUR_XUI_TOKEN"
   inbound_ids_direct: [1]
-  inbound_ids_relay: [2]
   # ссылка, которую бот отправляет пользователю — ведёт на страницу подписки sub-сервера
   sub_url_template: "https://vpn.example.com:8081/p/%s"
 

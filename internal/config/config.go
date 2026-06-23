@@ -16,16 +16,11 @@ func envOr(key, fallback string) string {
 
 type Trial struct {
 	PriceRub int `yaml:"price_rub"`
-	GB       int `yaml:"gb"`
 	Devices  int `yaml:"devices"`
 	Days     int `yaml:"days"`
 }
 
 type Constructor struct {
-	GBStep         int             `yaml:"gb_step"`
-	MinGB          int             `yaml:"min_gb"`
-	DefaultGB      int             `yaml:"default_gb"`
-	PricePerGB     int             `yaml:"price_per_gb"`
 	PricePerDevice int             `yaml:"price_per_device"`
 	DevicesStep    int             `yaml:"devices_step"`
 	DefaultDevices int             `yaml:"default_devices"`
@@ -48,7 +43,6 @@ type XUI struct {
 	Path           string `yaml:"path"`
 	Token          string `yaml:"token"`
 	InboundsDirect []int  `yaml:"inbound_ids_direct"`
-	InboundsRelay  []int  `yaml:"inbound_ids_relay"`
 	SubURLTemplate string `yaml:"sub_url_template"`
 }
 

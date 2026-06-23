@@ -35,7 +35,6 @@ func Constructor(c tele.Context) error {
 	}
 
 	text := texts.T("constructor.text", map[string]any{
-		"GB":          cs.GetGB(),
 		"Devices":     cs.GetDevices(),
 		"Months":      cs.GetMonths(),
 		"PricingLine": pricingLine,

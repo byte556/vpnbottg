@@ -67,11 +67,7 @@ func retryOrphanedProvision(c tele.Context, ctx context.Context, paymentSvc *ser
 	}
 
 	meta := ykPayment.Metadata
-	totalGB, _ := strconv.Atoi(meta["total_gb"])
 	devices, _ := strconv.Atoi(meta["devices"])
-	if totalGB == 0 {
-		totalGB = 30
-	}
 	if devices == 0 {
 		devices = 1
 	}
@@ -82,13 +78,13 @@ func retryOrphanedProvision(c tele.Context, ctx context.Context, paymentSvc *ser
 		if days <= 0 {
 			days = 7
 		}
-		subURL, err = subSvc.ProvisionFromPaymentDays(ctx, c.Sender().ID, totalGB, devices, days)
+		subURL, err = subSvc.ProvisionFromPaymentDays(ctx, c.Sender().ID, devices, days)
 	} else {
 		months, _ := strconv.Atoi(meta["months"])
 		if months <= 0 {
 			months = 1
 		}
-		subURL, err = subSvc.ProvisionFromPayment(ctx, c.Sender().ID, totalGB, devices, months)
+		subURL, err = subSvc.ProvisionFromPayment(ctx, c.Sender().ID, devices, months)
 	}
 
 	if err != nil {

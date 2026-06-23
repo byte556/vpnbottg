@@ -21,7 +21,6 @@ func PromoPrompt(c tele.Context) error {
 func PromoDaysSuccess(c tele.Context, res *service.RedeemResult, subSvc *service.Subscription) error {
 	if err := editOrFresh(c, texts.T("promo.days_success", map[string]any{
 		"Days":    res.Days,
-		"GB":      res.GB,
 		"Devices": res.Devices,
 	}), &tele.SendOptions{ParseMode: tele.ModeHTML}); err != nil {
 		return err

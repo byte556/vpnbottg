@@ -10,9 +10,6 @@ import (
 )
 
 var (
-	GbDec = "gb_dec"
-	GbInc = "gb_inc"
-
 	DevicesDec = "devices_dec"
 	DevicesInc = "devices_inc"
 
@@ -28,10 +25,6 @@ var (
 	AddonDevInc = "addon_dev_inc"
 	BuyAddonDev = "buy_addon_dev"
 
-	AddonGBDec = "addon_gb_dec"
-	AddonGBInc = "addon_gb_inc"
-	BuyAddonGB = "buy_addon_gb"
-
 	DeleteDevice = "delete_device"
 
 	TrialBuy = "trial_buy"
@@ -39,9 +32,8 @@ var (
 	Back       = "back_menu"
 	ShowConfig = "show_config"
 
-	// Кнопки-подписи в рядах ➕/➖ (значение по центру). Ничего не делают,
-	// но должны быть зарегистрированы, иначе Telegram крутит вечный спиннер.
-	NoopGB  = "noop_gb"
+	// Кнопка-подпись в ряду ➕/➖ (значение по центру). Ничего не делает,
+	// но должна быть зарегистрирована, иначе Telegram крутит вечный спиннер.
 	NoopDev = "noop_dev"
 
 	// Главное меню (inline-навигация).
@@ -163,16 +155,10 @@ func Constructor(s *session.ConstructorState, finalPrice int) *tele.ReplyMarkup 
 		return m.Data(label, fmt.Sprintf("month_%d", n))
 	}
 
-	gbLabel := fmt.Sprintf("%d ГБ", s.GetGB())
 	devLabel := fmt.Sprintf("%d устр.", s.GetDevices())
 	buyLabel := texts.T("constructor.buttons.buy", map[string]any{"Price": finalPrice})
 
 	m.Inline(
-		m.Row(
-			m.Data("➖", GbDec),
-			m.Data(gbLabel, NoopGB),
-			m.Data("➕", GbInc),
-		),
 		m.Row(
 			m.Data("➖", DevicesDec),
 			m.Data(devLabel, NoopDev),
@@ -186,7 +172,7 @@ func Constructor(s *session.ConstructorState, finalPrice int) *tele.ReplyMarkup 
 	return m
 }
 
-func SettingsKeyboard(addDev, devPrice, addGB, gbPrice int) *tele.ReplyMarkup {
+func SettingsKeyboard(addDev, devPrice int) *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
 	m.Inline(
 		m.Row(
@@ -195,12 +181,6 @@ func SettingsKeyboard(addDev, devPrice, addGB, gbPrice int) *tele.ReplyMarkup {
 			m.Data("➕", AddonDevInc),
 		),
 		m.Row(m.Data(fmt.Sprintf("💳 %d ₽ за устройство", devPrice), BuyAddonDev)),
-		m.Row(
-			m.Data("➖", AddonGBDec),
-			m.Data(fmt.Sprintf("+%d ГБ", addGB), NoopGB),
-			m.Data("➕", AddonGBInc),
-		),
-		m.Row(m.Data(fmt.Sprintf("💳 %d ₽ за трафик", gbPrice), BuyAddonGB)),
 		m.Row(m.Data(texts.T("buttons.back"), Back)),
 	)
 	return m

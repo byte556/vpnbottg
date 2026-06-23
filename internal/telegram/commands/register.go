@@ -137,7 +137,6 @@ func handleFindUser(c tele.Context, ctx context.Context, adminSvc *service.Admin
 		daysLeft := max(0, int(time.Until(time.Unix(sub.ExpiresAt, 0)).Hours()/24))
 		subInfo = texts.T("admin.search.sub_active", map[string]any{
 			"DaysLeft":    daysLeft,
-			"TrafficGB":   sub.TrafficGB,
 			"DeviceLimit": sub.DeviceLimit,
 		})
 	}
@@ -227,9 +226,9 @@ func handleRedeemPromo(c tele.Context, ctx context.Context, promoSvc *service.Pr
 
 // handleCreatePromo парсит админский ввод и создаёт/деактивирует промокод.
 //
-//	del КОД                              — деактивировать
-//	КОД days <дней> <ГБ> <устр> <лимит>  — код на бесплатные дни
-//	КОД discount <%> <лимит>             — код на скидку
+//	del КОД                         — деактивировать
+//	КОД days <дней> <устр> <лимит>  — код на бесплатные дни
+//	КОД discount <%> <лимит>        — код на скидку
 func handleCreatePromo(c tele.Context, ctx context.Context, promoSvc *service.PromoService, input string) error {
 	html := func(key string, args ...map[string]any) error {
 		return c.Send(texts.T(key, args...), &tele.SendOptions{ParseMode: tele.ModeHTML})
@@ -258,17 +257,16 @@ func handleCreatePromo(c tele.Context, ctx context.Context, promoSvc *service.Pr
 
 	switch kind {
 	case models.PromoRewardDays:
-		if len(fields) != 6 {
+		if len(fields) != 5 {
 			return html("admin.promo.usage")
 		}
 		days, e1 := strconv.Atoi(fields[2])
-		gb, e2 := strconv.Atoi(fields[3])
-		dev, e3 := strconv.Atoi(fields[4])
-		lim, e4 := strconv.Atoi(fields[5])
-		if e1 != nil || e2 != nil || e3 != nil || e4 != nil {
+		dev, e2 := strconv.Atoi(fields[3])
+		lim, e3 := strconv.Atoi(fields[4])
+		if e1 != nil || e2 != nil || e3 != nil {
 			return html("admin.promo.usage")
 		}
-		p.Days, p.GB, p.Devices, p.MaxUses = days, gb, dev, lim
+		p.Days, p.Devices, p.MaxUses = days, dev, lim
 	case models.PromoRewardDiscount:
 		if len(fields) != 4 {
 			return html("admin.promo.usage")

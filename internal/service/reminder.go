@@ -10,23 +10,20 @@ import (
 )
 
 type Reminder struct {
-	subs          repository.Subscriptions
-	xui           *xui.Client
-	inboundsRelay []int
-	send          func(userID int64, text string)
+	subs repository.Subscriptions
+	xui  *xui.Client
+	send func(userID int64, text string)
 }
 
 func NewReminderService(
 	subs repository.Subscriptions,
 	xui *xui.Client,
-	inboundsRelay []int,
 	send func(int64, string),
 ) *Reminder {
 	return &Reminder{
-		subs:          subs,
-		xui:           xui,
-		inboundsRelay: inboundsRelay,
-		send:          send,
+		subs: subs,
+		xui:  xui,
+		send: send,
 	}
 }
 
@@ -79,12 +76,7 @@ func (r *Reminder) check(ctx context.Context) {
 		r.send(sub.UserID, texts.T("reminder.expired"))
 
 		if err := r.xui.DisableClient(ctx, sub.XUIEmailDirect); err != nil {
-			log.Warn().Err(err).Str("email", sub.XUIEmailDirect).Msg("check: disable direct failed")
-		}
-		if sub.XUIEmailRelay != "" && len(r.inboundsRelay) > 0 {
-			if err := r.xui.DisableClient(ctx, sub.XUIEmailRelay); err != nil {
-				log.Warn().Err(err).Str("email", sub.XUIEmailRelay).Msg("check: disable relay failed")
-			}
+			log.Warn().Err(err).Str("email", sub.XUIEmailDirect).Msg("check: disable failed")
 		}
 
 		if err := r.subs.MarkExpiredNotified(ctx, sub.ID); err != nil {

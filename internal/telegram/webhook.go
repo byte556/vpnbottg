@@ -240,20 +240,18 @@ func (h *WebhookHandler) process(ctx context.Context, ykPayment *yookassa.Paymen
 		return
 	}
 
-	planGBStr := meta["total_gb"]
 	devicesStr := meta["devices"]
 	monthsStr := meta["months"]
-	if planGBStr == "" || devicesStr == "" || monthsStr == "" {
+	if devicesStr == "" || monthsStr == "" {
 		log.Warn().Msg("process: missing subscription metadata")
 		h.send(tgID, texts.T("error.incomplete_metadata"))
 		return
 	}
-	planGB, _ := strconv.Atoi(planGBStr)
 	devices, _ := strconv.Atoi(devicesStr)
 	months, _ := strconv.Atoi(monthsStr)
 
-	log.Info().Int("gb", planGB).Int("devices", devices).Int("months", months).Msg("process: provisioning subscription")
-	subURL, err := h.sub.ProvisionFromPayment(ctx, tgID, planGB, devices, months)
+	log.Info().Int("devices", devices).Int("months", months).Msg("process: provisioning subscription")
+	subURL, err := h.sub.ProvisionFromPayment(ctx, tgID, devices, months)
 	if err != nil {
 		log.Error().Err(err).Msg("process: ProvisionFromPayment failed")
 		h.send(tgID, texts.T("error.provision"))
@@ -328,8 +326,7 @@ func (h *WebhookHandler) sendSubscriberMenu(ctx context.Context, userID int64) {
 	}
 	daysLeft := max(0, int(time.Until(time.Unix(sub.ExpiresAt, 0)).Hours()/24))
 	text := texts.T("menu.subscriber.text", map[string]any{
-		"TrafficGB": sub.TrafficGB,
-		"DaysLeft":  daysLeft,
+		"DaysLeft": daysLeft,
 	})
 	if _, err := h.bot.Send(&tele.User{ID: userID}, text, keyboard.SubscriberMenu()); err != nil {
 		logger.L().Error().Err(err).Int64("user_id", userID).Msg("sendSubscriberMenu: send failed")

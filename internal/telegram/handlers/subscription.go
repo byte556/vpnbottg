@@ -110,11 +110,10 @@ func MyConfig(subSvc *service.Subscription) tele.HandlerFunc {
 		usedGB := subSvc.GetTrafficUsedGB(ctx, c.Sender().ID)
 
 		caption := texts.T("provision.my_config", map[string]any{
-			"URL":       url,
-			"UsedGB":    fmt.Sprintf("%.1f", usedGB),
-			"TrafficGB": sub.TrafficGB,
-			"Devices":   sub.DeviceLimit,
-			"DaysLeft":  daysLeft,
+			"URL":      url,
+			"UsedGB":   fmt.Sprintf("%.1f", usedGB),
+			"Devices":  sub.DeviceLimit,
+			"DaysLeft": daysLeft,
 		})
 
 		// Экран конфига — фото (QR). Его нельзя получить редактированием текстового
@@ -158,8 +157,6 @@ func SendSettings(c tele.Context, subSvc *service.Subscription) error {
 	expiresAt := time.Unix(sub.ExpiresAt, 0).Format("02.01.2006")
 
 	usedGBFloat := subSvc.GetTrafficUsedGB(ctx, c.Sender().ID)
-	usedGBInt := int(usedGBFloat)
-	trafficBar := progressBar(usedGBInt, sub.TrafficGB, 10)
 
 	totalDays := 30
 	if sub.StartedAt > 0 && sub.ExpiresAt > sub.StartedAt {
@@ -171,16 +168,14 @@ func SendSettings(c tele.Context, subSvc *service.Subscription) error {
 	daysBar := progressBar(daysLeft, totalDays, 10)
 
 	text := texts.T("settings.text", map[string]any{
-		"TrafficGB":  sub.TrafficGB,
-		"Devices":    sub.DeviceLimit,
-		"DaysLeft":   daysLeft,
-		"ExpiresAt":  expiresAt,
-		"UsedGB":     fmt.Sprintf("%.1f", usedGBFloat),
-		"TrafficBar": trafficBar,
-		"DaysBar":    daysBar,
+		"Devices":   sub.DeviceLimit,
+		"DaysLeft":  daysLeft,
+		"ExpiresAt": expiresAt,
+		"UsedGB":    fmt.Sprintf("%.1f", usedGBFloat),
+		"DaysBar":   daysBar,
 	})
 	return editOrFresh(c, text,
-		keyboard.SettingsKeyboard(sess.AddOnDevices, sess.AddonDevicesPrice(), sess.AddOnGB, sess.AddonGBPrice()),
+		keyboard.SettingsKeyboard(sess.AddOnDevices, sess.AddonDevicesPrice()),
 		&tele.SendOptions{ParseMode: tele.ModeHTML},
 	)
 }
