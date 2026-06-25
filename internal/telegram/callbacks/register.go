@@ -37,6 +37,15 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 	bot.Handle(&tele.Btn{Unique: keyboard.Buy}, Buy(payment, user))
 	bot.Handle(&tele.Btn{Unique: keyboard.CheckPayment}, CheckPayment(payment, sub, user, promo))
 
+	// Продление: вход с фикс. устройствами, оплата (тот же Buy из сессии), смена тарифа.
+	bot.Handle(&tele.Btn{Unique: keyboard.NavRenew}, func(c tele.Context) error {
+		return handlers.Renew(c, sub)
+	})
+	bot.Handle(&tele.Btn{Unique: keyboard.RenewBuy}, Buy(payment, user))
+	bot.Handle(&tele.Btn{Unique: keyboard.ChangePlan}, func(c tele.Context) error {
+		return handlers.ChangePlan(c)
+	})
+
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevDec}, AddonDevDec(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevInc}, AddonDevInc(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.BuyAddonDev}, BuyAddonDevice(payment, user))

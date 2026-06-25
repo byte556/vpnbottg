@@ -54,6 +54,10 @@ const invite     = G +
 const expired    =
   '<path d="M24 3 6 10v12c0 11 7.6 18.6 18 23 10.4-4.4 18-12 18-23V10L24 3Z" fill="#3a3d46"/>' +
   '<path d="M18.5 18.5l11 11M29.5 18.5l-11 11" stroke="'+BG+'" stroke-width="3.4" fill="none" stroke-linecap="round"/>';
+// Часы — напоминание об истечении (ещё жив, но срок на исходе).
+const clock      =
+  '<circle cx="24" cy="24" r="20" fill="url(#g)"/>' +
+  '<path d="M24 11v13l8.5 5" stroke="'+BG+'" stroke-width="3.6" fill="none" stroke-linecap="round" stroke-linejoin="round"/>';
 const activating = G + '<path d="M27 3 9 27h11l-2 18 19-26H25l3-16Z" fill="url(#g)"/>';
 
 const screens = [
@@ -70,6 +74,7 @@ const screens = [
   { name: 'help',       title: 'Помощь',            icon: help },
   { name: 'invite',     title: 'Пригласить друга',  icon: invite },
   { name: 'expired',    title: 'Подписка истекла',  icon: expired },
+  { name: 'expiry',     title: 'Скоро истечёт',    icon: clock },
 ];
 
 const tmpl = (title, icon) => `<!DOCTYPE html><html lang="ru"><head><meta charset="utf-8"><style>

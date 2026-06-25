@@ -13,6 +13,13 @@ func Constructor(c tele.Context) error {
 	sess := session.GetStore().Get(c.Sender().ID)
 	cs := &sess.Constructor
 
+	// Полный конструктор — всегда вне режима продления. Сбрасываем флаг, иначе
+	// кнопки срока (Month) увели бы пользователя обратно на экран продления.
+	if sess.RenewMode {
+		sess.RenewMode = false
+		session.GetStore().Save(c.Sender().ID, sess)
+	}
+
 	base := cs.CalcPrice()
 	final := sess.ApplyDiscount(base)
 

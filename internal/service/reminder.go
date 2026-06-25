@@ -66,7 +66,7 @@ func (r *Reminder) check(ctx context.Context) {
 	}
 	for _, sub := range expiring {
 		daysLeft := max(1, int(time.Until(time.Unix(sub.ExpiresAt, 0)).Hours()/24))
-		r.notify(sub.UserID, "", texts.T("reminder.expiry", map[string]any{"Days": daysLeft}), keyboard.RenewKeyboard())
+		r.notify(sub.UserID, "expiry", texts.T("reminder.expiry", map[string]any{"Days": daysLeft}), keyboard.RenewKeyboard())
 		if err := r.subs.MarkReminded(ctx, sub.ID); err != nil {
 			log.Error().Err(err).Int64("sub_id", sub.ID).Msg("check: MarkReminded failed")
 		}

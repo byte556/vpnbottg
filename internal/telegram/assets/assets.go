@@ -30,6 +30,7 @@ var cardFiles = map[string]string{
 	"help":       "help.png",       // помощь
 	"invite":     "invite.png",     // пригласить друга
 	"expired":    "expired.png",    // подписка истекла
+	"expiry":     "expiry.png",     // напоминание: скоро истечёт
 }
 
 // HasCard сообщает, есть ли карточка для экрана.
