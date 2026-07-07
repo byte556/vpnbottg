@@ -122,9 +122,11 @@ func MyConfig(subSvc *service.Subscription) tele.HandlerFunc {
 			_ = c.Delete()
 		}
 
+		kb := keyboard.MyConfigKeyboard(url)
+
 		qrBytes, err := qrcode.Encode(url, qrcode.Medium, 256)
 		if err != nil {
-			return editOrFresh(c, caption, keyboard.MyConfigKeyboard(), &tele.SendOptions{ParseMode: tele.ModeHTML})
+			return editOrFresh(c, caption, kb, &tele.SendOptions{ParseMode: tele.ModeHTML})
 		}
 
 		photo := &tele.Photo{
@@ -132,7 +134,7 @@ func MyConfig(subSvc *service.Subscription) tele.HandlerFunc {
 			Caption: caption,
 		}
 		// SendOptions передаём первым — иначе telebot затирает клавиатуру (см. sendOptsFirst).
-		return c.Send(photo, &tele.SendOptions{ParseMode: tele.ModeHTML}, keyboard.MyConfigKeyboard())
+		return c.Send(photo, &tele.SendOptions{ParseMode: tele.ModeHTML}, kb)
 	}
 }
 

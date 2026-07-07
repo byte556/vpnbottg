@@ -132,10 +132,13 @@ func InviteKeyboard() *tele.ReplyMarkup {
 	return m
 }
 
-// MyConfigKeyboard — кнопка «Назад» на экране с QR-кодом (фото).
-func MyConfigKeyboard() *tele.ReplyMarkup {
+// MyConfigKeyboard — кнопки экрана конфига (QR-код).
+func MyConfigKeyboard(subPageURL string) *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
-	m.Inline(m.Row(m.Data(texts.T("buttons.back"), Back)))
+	m.Inline(
+		m.Row(m.URL("🌐 Открыть страницу", subPageURL)),
+		m.Row(m.Data(texts.T("buttons.back"), Back)),
+	)
 	return m
 }
 
