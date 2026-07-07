@@ -21,6 +21,7 @@ type Trial struct {
 }
 
 type Constructor struct {
+	PriceBase      int             `yaml:"price_base"`
 	PricePerDevice int             `yaml:"price_per_device"`
 	DevicesStep    int             `yaml:"devices_step"`
 	DefaultDevices int             `yaml:"default_devices"`

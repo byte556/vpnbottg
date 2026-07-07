@@ -24,14 +24,14 @@ func (s *ConstructorState) AddDevices(v int) {
 	}
 }
 
-// CalcPrice: устройства × цена_за_устройство × месяцы × скидка
+// CalcPrice: (база + доп.устройства × цена_за_доп) × месяцы × скидка
 func (s *ConstructorState) CalcPrice() int {
 	cfg := config.Cfg.Bot.Constructor
 	discount, ok := cfg.MonthDiscounts[s.months]
 	if !ok {
 		discount = 1.0
 	}
-	base := float64(s.devices) * float64(cfg.PricePerDevice)
+	base := float64(cfg.PriceBase) + float64(s.devices-1)*float64(cfg.PricePerDevice)
 	return int(math.Round(base * float64(s.months) * discount))
 }
 
@@ -57,8 +57,8 @@ func (s *ConstructorState) CalcPricePerDay() int {
 // CalcSavings — сколько экономит по сравнению с ежемесячной оплатой без скидки.
 func (s *ConstructorState) CalcSavings() int {
 	cfg := config.Cfg.Bot.Constructor
-	base := float64(s.devices) * float64(cfg.PricePerDevice)
-	fullPrice := base * float64(s.months) // без скидки
+	base := float64(cfg.PriceBase) + float64(s.devices-1)*float64(cfg.PricePerDevice)
+	fullPrice := base * float64(s.months)
 	return int(math.Round(fullPrice - float64(s.CalcPrice())))
 }
 

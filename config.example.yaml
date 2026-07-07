@@ -3,9 +3,10 @@ bot:
   admin_id: 0           # твой Telegram user ID
   support: "@support"   # username поддержки
   constructor:
+    price_base: 199          # ₽/мес за 1 устройство (базовая цена)
+    price_per_device: 100    # ₽/мес за каждое дополнительное устройство
     devices_step: 1
-    price_per_device: 150   # ₽/устройство/месяц
-    default_devices: 3
+    default_devices: 1
     month_discounts:
       1:  1.00
       3:  0.85
