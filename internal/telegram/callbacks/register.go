@@ -12,7 +12,7 @@ import (
 
 func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subscription, user *service.User, ref *service.ReferralService, stats repository.Stats, promo *service.PromoService) {
 	// Главное меню — inline-навигация. Каждая кнопка делегирует рендеринг хендлеру.
-	bot.Handle(&tele.Btn{Unique: keyboard.NavBuy}, handlers.Constructor)
+	bot.Handle(&tele.Btn{Unique: keyboard.NavBuy}, handlers.StartBuy)
 	bot.Handle(&tele.Btn{Unique: keyboard.NavTrial}, handlers.TrialStart(payment, sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.NavHelp}, handlers.Help)
 	bot.Handle(&tele.Btn{Unique: keyboard.NavInvite}, handlers.Invite(bot.Me.Username, ref, user))
@@ -27,6 +27,7 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 	bot.Handle(&tele.Btn{Unique: keyboard.DevicesDec}, DevicesDec)
 	bot.Handle(&tele.Btn{Unique: keyboard.DevicesInc}, DevicesInc)
 
+	bot.Handle(&tele.Btn{Unique: keyboard.Month0}, Month(0))
 	bot.Handle(&tele.Btn{Unique: keyboard.Month1}, Month(1))
 	bot.Handle(&tele.Btn{Unique: keyboard.Month3}, Month(3))
 	bot.Handle(&tele.Btn{Unique: keyboard.Month6}, Month(6))
@@ -36,12 +37,6 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 
 	bot.Handle(&tele.Btn{Unique: keyboard.Buy}, Buy(payment, user, sub, promo))
 	bot.Handle(&tele.Btn{Unique: keyboard.CheckPayment}, CheckPayment(payment, sub, user, promo, ref))
-
-	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevDec}, AddonDevDec(sub))
-	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevInc}, AddonDevInc(sub))
-	bot.Handle(&tele.Btn{Unique: keyboard.BuyAddonDev}, BuyAddonDevice(payment, user, sub))
-	bot.Handle(&tele.Btn{Unique: keyboard.RemoveDev}, RemoveDeviceBtn(sub))
-	bot.Handle(&tele.Btn{Unique: keyboard.RenewOpen}, OpenRenew(sub))
 
 	bot.Handle(&tele.Btn{Unique: keyboard.DeleteDevice}, DeleteDevice(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.Back}, BackToMenu(sub))

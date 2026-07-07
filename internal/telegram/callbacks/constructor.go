@@ -58,7 +58,17 @@ func Buy(paymentServ *service.PaymentService, userSvc *service.User, sub *servic
 			return handlers.PaymentError(c)
 		}
 
-		price := sess.ApplyDiscount(sess.Constructor.CalcPrice())
+		cs := &sess.Constructor
+		devices := cs.GetDevices()
+		months := cs.GetMonths()
+
+		// Режим управления: если ничего не меняется (не продлеваем и число
+		// устройств прежнее) — платить/применять нечего.
+		if cs.IsManage() && months == 0 && devices == cs.BaseDevices() {
+			return c.Respond(&tele.CallbackResponse{Text: texts.T("manage.no_changes")})
+		}
+
+		price := sess.ApplyDiscount(cs.CalcPrice())
 
 		balance, _ := userSvc.GetBalance(ctx, c.Sender().ID)
 		balanceUsed := balance
@@ -67,19 +77,22 @@ func Buy(paymentServ *service.PaymentService, userSvc *service.User, sub *servic
 		}
 		toPay := int64(price) - balanceUsed
 
-		description := fmt.Sprintf(
-			"VPN %d подкл. / %d мес",
-			sess.Constructor.GetDevices(),
-			sess.Constructor.GetMonths(),
-		)
-		log.Info().Int("price", price).Int64("balance", balance).Int64("balance_used", balanceUsed).Int64("to_pay", toPay).Msg("Buy: calculated")
+		var description string
+		if months > 0 {
+			description = fmt.Sprintf("VPN %d подкл. / %d мес", devices, months)
+		} else {
+			description = fmt.Sprintf("VPN %d подкл. (изменение тарифа)", devices)
+		}
+		log.Info().Bool("manage", cs.IsManage()).Int("devices", devices).Int("months", months).Int("price", price).Int64("balance", balance).Int64("balance_used", balanceUsed).Int64("to_pay", toPay).Msg("Buy: calculated")
 
-		// Полностью покрыто балансом — выдаём без YooKassa.
+		// Полностью покрыто балансом (или бесплатное изменение) — выдаём без YooKassa.
 		if toPay <= 0 {
-			log.Info().Msg("Buy: fully covered by balance")
-			if _, err := userSvc.DeductBalance(ctx, c.Sender().ID, balanceUsed); err != nil {
-				log.Error().Err(err).Msg("Buy: DeductBalance failed")
-				return handlers.PaymentError(c)
+			log.Info().Msg("Buy: fully covered by balance / free change")
+			if balanceUsed > 0 {
+				if _, err := userSvc.DeductBalance(ctx, c.Sender().ID, balanceUsed); err != nil {
+					log.Error().Err(err).Msg("Buy: DeductBalance failed")
+					return handlers.PaymentError(c)
+				}
 			}
 
 			if promo != nil && sess.PromoCode != "" {
@@ -93,8 +106,8 @@ func Buy(paymentServ *service.PaymentService, userSvc *service.User, sub *servic
 
 			meta := map[string]string{
 				"tg_id":   fmt.Sprintf("%d", c.Sender().ID),
-				"devices": fmt.Sprintf("%d", sess.Constructor.GetDevices()),
-				"months":  fmt.Sprintf("%d", sess.Constructor.GetMonths()),
+				"devices": fmt.Sprintf("%d", devices),
+				"months":  fmt.Sprintf("%d", months),
 			}
 			return provision(c, ctx, meta, sub)
 		}
@@ -102,8 +115,8 @@ func Buy(paymentServ *service.PaymentService, userSvc *service.User, sub *servic
 		// Частичная или нулевая скидка балансом — создаём YK-платёж на остаток.
 		metadata := map[string]string{
 			"tg_id":      fmt.Sprintf("%d", c.Sender().ID),
-			"devices":    fmt.Sprintf("%d", sess.Constructor.GetDevices()),
-			"months":     fmt.Sprintf("%d", sess.Constructor.GetMonths()),
+			"devices":    fmt.Sprintf("%d", devices),
+			"months":     fmt.Sprintf("%d", months),
 			"promo_code": sess.PromoCode,
 		}
 		if balanceUsed > 0 {
@@ -273,10 +286,9 @@ func provision(c tele.Context, ctx context.Context, meta map[string]string, sub 
 	}
 
 	months, _ := strconv.Atoi(meta["months"])
-	if months == 0 {
-		months = 1
-	}
-	log.Info().Int("devices", devices).Int("months", months).Msg("provision: new subscription")
+	// months=0 — управление активной подпиской без продления (только изменение
+	// числа устройств). ProvisionFromPayment в этом случае срок не трогает.
+	log.Info().Int("devices", devices).Int("months", months).Msg("provision: subscription")
 	subURL, err := sub.ProvisionFromPayment(ctx, c.Sender().ID, devices, months)
 	if err != nil {
 		log.Error().Err(err).Msg("provision: ProvisionFromPayment failed")

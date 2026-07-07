@@ -69,7 +69,7 @@ func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.Refer
 	// Эти text-обработчики оставлены как fallback для пользователей, у которых ещё
 	// висит старая reply-клавиатура от прошлой версии — нажатие маршрутизируется
 	// в тот же хендлер, дублирования с inline-кнопками нет (разные namespace).
-	bot.Handle(texts.T("start.buttons.buy"), handlers.Constructor)
+	bot.Handle(texts.T("start.buttons.buy"), handlers.StartBuy)
 	bot.Handle(texts.T("start.buttons.trial"), handlers.TrialStart(payment, subSvc))
 	bot.Handle(texts.T("start.buttons.help"), handlers.Help)
 	bot.Handle(texts.T("start.buttons.invite"), inviteHandler)

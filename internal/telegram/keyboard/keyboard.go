@@ -13,6 +13,7 @@ var (
 	DevicesDec = "devices_dec"
 	DevicesInc = "devices_inc"
 
+	Month0  = "month_0"
 	Month1  = "month_1"
 	Month3  = "month_3"
 	Month6  = "month_6"
@@ -20,12 +21,6 @@ var (
 
 	Buy          = "buy"
 	CheckPayment = "check_payment"
-
-	AddonDevDec = "addon_dev_dec"
-	AddonDevInc = "addon_dev_inc"
-	BuyAddonDev = "buy_addon_dev"
-	RemoveDev   = "remove_dev"
-	RenewOpen   = "renew_open"
 
 	DeleteDevice = "delete_device"
 
@@ -157,6 +152,8 @@ func Constructor(s *session.ConstructorState, finalPrice int) *tele.ReplyMarkup 
 	monthBtn := func(n int) tele.Btn {
 		var label string
 		switch n {
+		case 0:
+			label = "Не продлевать"
 		case 12:
 			label = "🔥 12 мес"
 		default:
@@ -169,46 +166,39 @@ func Constructor(s *session.ConstructorState, finalPrice int) *tele.ReplyMarkup 
 	}
 
 	devLabel := fmt.Sprintf("%d устр.", s.GetDevices())
+
+	// Кнопка оплаты. В режиме управления бесплатное изменение (напр. уменьшение
+	// устройств без продления) — это «Применить», ненулевая сумма — «Оплатить».
 	var buyLabel string
-	if finalPrice <= 0 {
+	switch {
+	case finalPrice <= 0 && s.IsManage():
+		buyLabel = "✅ Применить"
+	case finalPrice <= 0:
 		buyLabel = "✅ Оплатить бонусами"
-	} else {
+	default:
 		buyLabel = texts.T("constructor.buttons.buy", map[string]any{"Price": finalPrice})
 	}
 
-	m.Inline(
+	rows := []tele.Row{
 		m.Row(
 			m.Data("➖", DevicesDec),
 			m.Data(devLabel, NoopDev),
 			m.Data("➕", DevicesInc),
 		),
-		m.Row(monthBtn(1), monthBtn(3), monthBtn(6), monthBtn(12)),
+	}
+	// В режиме управления добавляем «Не продлевать» — можно менять только устройства.
+	if s.IsManage() {
+		rows = append(rows, m.Row(monthBtn(0), monthBtn(1), monthBtn(3)))
+		rows = append(rows, m.Row(monthBtn(6), monthBtn(12)))
+	} else {
+		rows = append(rows, m.Row(monthBtn(1), monthBtn(3), monthBtn(6), monthBtn(12)))
+	}
+	rows = append(rows,
 		m.Row(m.Data(buyLabel, Buy)),
 		m.Row(m.Data(texts.T("buttons.back"), Back)),
 	)
+	m.Inline(rows...)
 
-	return m
-}
-
-// SettingsKeyboard — экран «Мой тариф». Ряды:
-//   ➖ [+N устр.] ➕   — выбор количества добавляемых устройств
-//   💳 добавить N устр.  — покупка доп. устройств (без продления срока)
-//   🗑 убрать устройство — уменьшить лимит (без возврата денег)
-//   🔄 Продлить / изменить тариф — открывает конструктор (устройства + срок)
-//   ◀️ Назад
-func SettingsKeyboard(addDev, devPrice int) *tele.ReplyMarkup {
-	m := &tele.ReplyMarkup{}
-	m.Inline(
-		m.Row(
-			m.Data("➖", AddonDevDec),
-			m.Data(fmt.Sprintf("+%d устр.", addDev), NoopDev),
-			m.Data("➕", AddonDevInc),
-		),
-		m.Row(m.Data(fmt.Sprintf("💳 %d ₽ за устройство", devPrice), BuyAddonDev)),
-		m.Row(m.Data("🗑 Убрать устройство", RemoveDev)),
-		m.Row(m.Data("🔄 Продлить / изменить тариф", RenewOpen)),
-		m.Row(m.Data(texts.T("buttons.back"), Back)),
-	)
 	return m
 }
 

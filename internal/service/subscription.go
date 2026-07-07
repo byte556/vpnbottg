@@ -228,34 +228,6 @@ func (s *Subscription) setDeviceLimit(ctx context.Context, userID int64, sub *mo
 	return nil
 }
 
-// RemoveDevice уменьшает лимит устройств активной подписки на removeDevices
-// (но не ниже 1). Деньги не возвращаются. Если зарегистрированных устройств
-// стало больше нового лимита — удаляем самые новые записи из БД, освобождая слоты.
-// Возвращает новый лимит устройств.
-func (s *Subscription) RemoveDevice(ctx context.Context, userID int64, removeDevices int) (int, error) {
-	sub, err := s.subs.GetActiveSubscription(ctx, userID)
-	if err != nil {
-		return 0, fmt.Errorf("removeDevice: %w", err)
-	}
-
-	newLimit := sub.DeviceLimit - removeDevices
-	if newLimit < 1 {
-		newLimit = 1
-	}
-	if newLimit == sub.DeviceLimit {
-		return sub.DeviceLimit, nil // уже на минимуме — ничего не делаем
-	}
-
-	if err := s.setDeviceLimit(ctx, userID, sub, newLimit); err != nil {
-		return 0, fmt.Errorf("removeDevice: %w", err)
-	}
-
-	_ = s.audit.Log(ctx, &userID, "remove_device",
-		fmt.Sprintf(`{"sub_id":%d,"new_limit":%d}`, sub.ID, newLimit))
-	logger.L().Info().Int64("user_id", userID).Int64("sub_id", sub.ID).Int("new_limit", newLimit).Msg("removeDevice: ok")
-	return newLimit, nil
-}
-
 func (s *Subscription) ListDevices(ctx context.Context, userID int64) (*models.Subscription, []*models.DeviceConnection, error) {
 	sub, err := s.subs.GetActiveSubscription(ctx, userID)
 	if err != nil {
@@ -389,16 +361,22 @@ func (s *Subscription) ProvisionFromPayment(
 ) (string, error) {
 	log := logger.L().With().Int64("user_id", userID).Logger()
 
-	planDays := months * 30
 	_, err := s.GetActive(ctx, userID)
 
 	if err == nil {
-		if err := s.Renew(ctx, userID, planDays); err != nil {
-			return "", fmt.Errorf("provisionFromPayment: renew failed: %w", err)
+		// Активная подписка: months>0 — продлеваем срок; months<=0 — только
+		// меняем устройства (управление тарифом без продления), срок не трогаем.
+		if months > 0 {
+			if err := s.Renew(ctx, userID, months*30); err != nil {
+				return "", fmt.Errorf("provisionFromPayment: renew failed: %w", err)
+			}
 		}
 	} else if errors.Is(err, repository.ErrNotFound) {
-		_, err := s.Create(ctx, userID, planDays, devices)
-		if err != nil {
+		planDays := months * 30
+		if planDays <= 0 {
+			planDays = 30 // нет активной подписки — months=0 не имеет смысла, берём месяц
+		}
+		if _, err := s.Create(ctx, userID, planDays, devices); err != nil {
 			return "", fmt.Errorf("provisionFromPayment: create failed: %w", err)
 		}
 	} else {

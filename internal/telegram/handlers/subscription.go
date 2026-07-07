@@ -142,6 +142,10 @@ func StatusSub(subSvc *service.Subscription) tele.HandlerFunc {
 	return MyConfig(subSvc)
 }
 
+// Settings открывает конструктор в режиме управления активной подпиской
+// («⚙️ Мой тариф»): предзаполняет текущим числом устройств, фиксирует остаток
+// дней для пропорциональной доплаты за устройства. Отдельной страницы-настроек
+// больше нет — всё управление тарифом в одном конструкторе.
 func Settings(subSvc *service.Subscription) tele.HandlerFunc {
 	return func(c tele.Context) error {
 		return SendSettings(c, subSvc)
@@ -150,37 +154,37 @@ func Settings(subSvc *service.Subscription) tele.HandlerFunc {
 
 func SendSettings(c tele.Context, subSvc *service.Subscription) error {
 	ctx := context.Background()
+	sess := session.GetStore().Get(c.Sender().ID)
+	sess.PaymentID = ""
+
 	sub, err := subSvc.GetActive(ctx, c.Sender().ID)
 	if err != nil {
 		return GuestMenu(c)
 	}
-	sess := session.GetStore().Get(c.Sender().ID)
 
 	daysLeft := max(0, int(time.Until(time.Unix(sub.ExpiresAt, 0)).Hours()/24))
-	expiresAt := time.Unix(sub.ExpiresAt, 0).Format("02.01.2006")
-
-	usedGBFloat := subSvc.GetTrafficUsedGB(ctx, c.Sender().ID)
-
-	totalDays := 30
-	if sub.StartedAt > 0 && sub.ExpiresAt > sub.StartedAt {
-		totalDays = int(time.Unix(sub.ExpiresAt, 0).Sub(time.Unix(sub.StartedAt, 0)).Hours() / 24)
-		if totalDays < 1 {
-			totalDays = 1
-		}
+	devices := sub.DeviceLimit
+	if devices < 1 {
+		devices = 1
 	}
-	daysBar := progressBar(daysLeft, totalDays, 10)
 
-	text := texts.T("settings.text", map[string]any{
-		"Devices":   sub.DeviceLimit,
-		"DaysLeft":  daysLeft,
-		"ExpiresAt": expiresAt,
-		"UsedGB":    fmt.Sprintf("%.1f", usedGBFloat),
-		"DaysBar":   daysBar,
-	})
-	return screen(c, "settings", text,
-		keyboard.SettingsKeyboard(sess.AddOnDevices, sess.AddonDevicesPrice()),
-		&tele.SendOptions{ParseMode: tele.ModeHTML},
-	)
+	sess.Constructor.SetManage(devices, daysLeft)
+	sess.Constructor.SetDevices(devices)
+	sess.Constructor.SetMonths(0) // по умолчанию не продлеваем — только меняем устройства
+	session.GetStore().Save(c.Sender().ID, sess)
+
+	return Constructor(c)
+}
+
+// StartBuy открывает конструктор в режиме новой покупки (сбрасывает режим
+// управления подпиской). Используется кнопкой «Купить VPN» и командой.
+func StartBuy(c tele.Context) error {
+	sess := session.GetStore().Get(c.Sender().ID)
+	sess.PaymentID = ""
+	sess.Constructor.ResetManage()
+	sess.Constructor.SetMonths(1)
+	session.GetStore().Save(c.Sender().ID, sess)
+	return Constructor(c)
 }
 
 func Devices(subSvc *service.Subscription) tele.HandlerFunc {
