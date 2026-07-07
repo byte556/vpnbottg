@@ -116,6 +116,29 @@ func main() {
 			config.Cfg.Bot.Support,
 			db,
 		)
+
+		notifyDevice := func(subID, card, tmplKey, platform string) {
+			userID, err := db.GetUserIDBySubID(context.Background(), subID)
+			if err != nil {
+				log.Warn().Err(err).Str("sub_id", subID).Msg("device notify: user not found")
+				return
+			}
+			msg := texts.T(tmplKey, map[string]any{"Platform": platform})
+			to := &tele.User{ID: userID}
+			opts := &tele.SendOptions{ParseMode: tele.ModeHTML}
+			if photo := assets.Photo(card, msg); photo != nil {
+				bot.Send(to, photo, opts)
+				return
+			}
+			bot.Send(to, msg, opts)
+		}
+		ss.OnNewDevice = func(subID, platform string) {
+			notifyDevice(subID, "device_new", "subscription.device_new", platform)
+		}
+		ss.OnDeviceBlocked = func(subID, platform string) {
+			notifyDevice(subID, "device_blocked", "subscription.device_blocked", platform)
+		}
+
 		subSrv = &http.Server{
 			Addr:    fmt.Sprintf(":%d", config.Cfg.SubServer.Port),
 			Handler: ss.Handler(),

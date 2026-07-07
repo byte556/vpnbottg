@@ -38,27 +38,27 @@ func TestAuthorizeDeviceConnection(t *testing.T) {
 		}
 		return len(devices)
 	}
-	authorize := func(hwid, ua, platform string) bool {
-		allowed, err := db.AuthorizeDeviceConnection(ctx, "sub-1", hwid, ua, platform)
+	authorize := func(hwid, ua, platform string) (allowed, isNew bool) {
+		allowed, isNew, err := db.AuthorizeDeviceConnection(ctx, "sub-1", hwid, ua, platform)
 		if err != nil {
 			t.Fatalf("AuthorizeDeviceConnection(%s): %v", hwid, err)
 		}
-		return allowed
+		return allowed, isNew
 	}
 
 	// Новые устройства разрешаются, пока не достигнут device_limit (=2).
-	if !authorize("hwid-a", "Happ/1.0 iPhone", "iOS") {
-		t.Fatal("hwid-a should be allowed (under limit)")
+	if allowed, isNew := authorize("hwid-a", "Happ/1.0 iPhone", "iOS"); !allowed || !isNew {
+		t.Fatalf("hwid-a: allowed=%v isNew=%v, want true/true", allowed, isNew)
 	}
-	if !authorize("hwid-b", "Happ/1.0 Pixel", "Android") {
-		t.Fatal("hwid-b should be allowed (under limit)")
+	if allowed, isNew := authorize("hwid-b", "Happ/1.0 Pixel", "Android"); !allowed || !isNew {
+		t.Fatalf("hwid-b: allowed=%v isNew=%v, want true/true", allowed, isNew)
 	}
 	if got := count(); got != 2 {
 		t.Fatalf("after 2 devices got %d, want 2", got)
 	}
 
 	// Третье НОВОЕ устройство сверх лимита — отказ, не записывается.
-	if authorize("hwid-c", "Happ/1.0 Mac", "macOS") {
+	if allowed, _ := authorize("hwid-c", "Happ/1.0 Mac", "macOS"); allowed {
 		t.Fatal("hwid-c should be denied (over limit)")
 	}
 	if got := count(); got != 2 {
@@ -66,8 +66,8 @@ func TestAuthorizeDeviceConnection(t *testing.T) {
 	}
 
 	// Уже зареганное устройство всегда разрешено и обновляется даже на полном лимите.
-	if !authorize("hwid-a", "Happ/2.0 iPhone", "iOS") {
-		t.Fatal("known hwid-a should stay allowed at full limit")
+	if allowed, isNew := authorize("hwid-a", "Happ/2.0 iPhone", "iOS"); !allowed || isNew {
+		t.Fatalf("known hwid-a: allowed=%v isNew=%v, want true/false", allowed, isNew)
 	}
 	devices, _ := db.ListDeviceConnections(ctx, "sub-1")
 	if len(devices) != 2 {
@@ -90,8 +90,8 @@ func TestAuthorizeDeviceConnection(t *testing.T) {
 	if got := count(); got != 1 {
 		t.Fatalf("after unlink got %d devices, want 1", got)
 	}
-	if !authorize("hwid-c", "Happ/1.0 Mac", "macOS") {
-		t.Fatal("hwid-c should be allowed after freeing a slot")
+	if allowed, isNew := authorize("hwid-c", "Happ/1.0 Mac", "macOS"); !allowed || !isNew {
+		t.Fatalf("hwid-c after free slot: allowed=%v isNew=%v, want true/true", allowed, isNew)
 	}
 	if got := count(); got != 2 {
 		t.Fatalf("after freeing slot got %d devices, want 2", got)

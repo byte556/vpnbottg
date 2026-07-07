@@ -29,7 +29,9 @@ var cardFiles = map[string]string{
 	"success":    "success.png",    // VPN активирован
 	"help":       "help.png",       // помощь
 	"invite":     "invite.png",     // пригласить друга
-	"expired":    "expired.png",    // подписка истекла
+	"expired":        "expired.png",        // подписка истекла
+	"device_new":     "device_new.png",     // новое устройство подключено
+	"device_blocked": "device_blocked.png", // устройство заблокировано (лимит)
 }
 
 // HasCard сообщает, есть ли карточка для экрана.

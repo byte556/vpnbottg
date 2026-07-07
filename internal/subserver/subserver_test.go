@@ -235,6 +235,7 @@ func TestHandleSubFailOpenOnDBError(t *testing.T) {
 
 type fakeDeviceRepo struct {
 	allowed   bool
+	isNew     bool
 	err       error
 	called    bool
 	deviceID  string
@@ -242,10 +243,10 @@ type fakeDeviceRepo struct {
 	platform  string
 }
 
-func (f *fakeDeviceRepo) AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (bool, error) {
+func (f *fakeDeviceRepo) AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (bool, bool, error) {
 	f.called = true
 	f.deviceID = deviceID
 	f.userAgent = userAgent
 	f.platform = platform
-	return f.allowed, f.err
+	return f.allowed, f.isNew, f.err
 }

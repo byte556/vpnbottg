@@ -22,8 +22,9 @@ import (
 
 // DeviceAuthorizer — проверка лимита устройств + учёт по HWID.
 // allowed=false → новое устройство сверх лимита, конфиг не отдаётся.
+// isNew=true → устройство зарегистрировано впервые.
 type DeviceAuthorizer interface {
-	AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (bool, error)
+	AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (allowed, isNew bool, err error)
 }
 
 // upstreamHeaders — заголовки подписки, которые клиенты ждут от sub-сервиса.
@@ -37,12 +38,14 @@ var upstreamHeaders = []string{
 }
 
 type Server struct {
-	upstreamTemplate string // fmt-шаблон URL подписки в панели, напр. "https://panel/sub/%s"
-	publicBaseURL    string // внешний адрес этого сервера (для ссылок на странице)
-	botURL           string // ссылка на Telegram-бота для лендинга (пусто = кнопка скрыта)
-	support          string // контакт поддержки для лендинга, напр. "@byttte"
+	upstreamTemplate string
+	publicBaseURL    string
+	botURL           string
+	support          string
 	repo             DeviceAuthorizer
 	http             *http.Client
+	OnNewDevice     func(subID, platform string)
+	OnDeviceBlocked func(subID, platform string)
 }
 
 func New(upstreamTemplate, publicBaseURL, botURL, support string, repo DeviceAuthorizer) *Server {
@@ -100,15 +103,23 @@ func (s *Server) handleSub(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "device id required", http.StatusForbidden)
 			return
 		}
-		allowed, err := s.repo.AuthorizeDeviceConnection(r.Context(), subID, hw, ua, plat)
+		allowed, isNew, err := s.repo.AuthorizeDeviceConnection(r.Context(), subID, hw, ua, plat)
 		switch {
 		case err != nil:
 			// fail-open: разовый сбой БД не должен блокировать всех пользователей.
 			log.Error().Err(err).Str("hwid", hw).Msg("sub: authorize failed, serving anyway (fail-open)")
 		case !allowed:
 			log.Warn().Str("hwid", hw).Msg("sub: device limit reached, refusing")
+			if s.OnDeviceBlocked != nil {
+				go s.OnDeviceBlocked(subID, plat)
+			}
 			http.Error(w, "device limit reached", http.StatusForbidden)
 			return
+		case isNew:
+			log.Info().Str("hwid", hw).Str("platform", plat).Msg("sub: new device registered")
+			if s.OnNewDevice != nil {
+				go s.OnNewDevice(subID, plat)
+			}
 		}
 	}
 

@@ -13,7 +13,14 @@ import (
 // в этом случае не отдаёт конфиг. Слот освобождается отвязкой устройства в ТГ.
 // device_limit <= 0 трактуется как безлимит. Один атомарный запрос — без гонок:
 // RowsAffected > 0 значит запись прошла (вставка нового или обновление известного).
-func (d *DB) AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (bool, error) {
+func (d *DB) AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (allowed, isNew bool, err error) {
+	var exists int
+	_ = d.sql.QueryRowContext(ctx,
+		`SELECT 1 FROM device_connections WHERE sub_id = ? AND device_id = ?`,
+		subID, deviceID,
+	).Scan(&exists)
+	known := exists == 1
+
 	res, err := d.sql.ExecContext(ctx, `
 		INSERT INTO device_connections (sub_id, device_id, platform, user_agent, first_seen, last_seen)
 		SELECT ?, ?, ?, ?, unixepoch(), unixepoch()
@@ -35,13 +42,13 @@ func (d *DB) AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, use
 			user_agent = excluded.user_agent
 	`, subID, deviceID, platform, userAgent, subID, deviceID, subID, subID)
 	if err != nil {
-		return false, fmt.Errorf("authorizeDeviceConnection: %w", err)
+		return false, false, fmt.Errorf("authorizeDeviceConnection: %w", err)
 	}
 	n, err := res.RowsAffected()
 	if err != nil {
-		return false, fmt.Errorf("authorizeDeviceConnection rows: %w", err)
+		return false, false, fmt.Errorf("authorizeDeviceConnection rows: %w", err)
 	}
-	return n > 0, nil
+	return n > 0, n > 0 && !known, nil
 }
 
 func (d *DB) ListDeviceConnections(ctx context.Context, subID string) ([]*models.DeviceConnection, error) {

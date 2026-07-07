@@ -25,6 +25,8 @@ type Subscriptions interface {
 	GetRecentlyExpiredUnnotified(ctx context.Context, since int64) ([]*models.Subscription, error)
 	MarkReminded(ctx context.Context, subID int64) error
 	MarkExpiredNotified(ctx context.Context, subID int64) error
+	// GetUserIDBySubID возвращает tg_id владельца активной подписки по xui_sub_id.
+	GetUserIDBySubID(ctx context.Context, xuiSubID string) (int64, error)
 }
 
 type Payments interface {
@@ -61,7 +63,8 @@ type DeviceConnections interface {
 	// AuthorizeDeviceConnection — проверка device_limit + upsert по (sub_id, device_id=HWID).
 	// allowed=true, если устройство уже зарегано или лимит ещё не достигнут;
 	// новое устройство сверх лимита не пишется и получает allowed=false.
-	AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (bool, error)
+	// isNew=true, если устройство было зарегистрировано впервые (не обновление existing).
+	AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (allowed, isNew bool, err error)
 	ListDeviceConnections(ctx context.Context, subID string) ([]*models.DeviceConnection, error)
 	DeleteDeviceConnectionByID(ctx context.Context, subID string, deviceConnID int64) error
 	// DeleteDeviceConnectionsBySubID удаляет все устройства подписки
