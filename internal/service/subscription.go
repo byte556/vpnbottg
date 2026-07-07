@@ -180,13 +180,59 @@ func (s *Subscription) AddDevice(ctx context.Context, userID int64, addDevices i
 	return nil
 }
 
+// setDeviceLimit приводит лимит устройств активной подписки к newLimit (не ниже 1).
+// Обновляет панель XUI и БД. При уменьшении освобождает лишние слоты — удаляет
+// самые новые зарегистрированные устройства из БД. Деньги не возвращаются.
+func (s *Subscription) setDeviceLimit(ctx context.Context, userID int64, sub *models.Subscription, newLimit int) error {
+	if newLimit < 1 {
+		newLimit = 1
+	}
+	delta := newLimit - sub.DeviceLimit
+	if delta == 0 {
+		return nil
+	}
+
+	log := logger.L().With().Int64("user_id", userID).Int("new_limit", newLimit).Int("delta", delta).Logger()
+
+	// Меняем только лимит подключений (addGB = 0); delta может быть отрицательным.
+	if err := s.xui.AddClientCapacity(ctx, sub.XUIEmailDirect, 0, delta); err != nil {
+		return fmt.Errorf("setDeviceLimit: xui: %w", err)
+	}
+	if err := s.subs.UpdateSubscriptionDevices(ctx, sub.ID, newLimit, sub.TrafficGB); err != nil {
+		return fmt.Errorf("setDeviceLimit: db: %w", err)
+	}
+
+	// При уменьшении освобождаем слоты: если зарегистрированных устройств больше
+	// нового лимита — удаляем самые новые записи из БД (последние подключившиеся).
+	if delta < 0 {
+		subID := sub.XUISubID
+		if subID == "" {
+			if _, err := s.GetConfigURL(ctx, userID); err == nil {
+				if reloaded, rErr := s.subs.GetActiveSubscription(ctx, userID); rErr == nil {
+					subID = reloaded.XUISubID
+				}
+			}
+		}
+		if subID != "" {
+			if count, err := s.devices.CountDeviceConnections(ctx, subID); err != nil {
+				log.Warn().Err(err).Msg("setDeviceLimit: count connections failed")
+			} else if excess := count - newLimit; excess > 0 {
+				if err := s.devices.DeleteNewestDeviceConnections(ctx, subID, excess); err != nil {
+					log.Warn().Err(err).Int("excess", excess).Msg("setDeviceLimit: delete excess failed")
+				} else {
+					log.Info().Int("excess", excess).Msg("setDeviceLimit: freed device slots")
+				}
+			}
+		}
+	}
+	return nil
+}
+
 // RemoveDevice уменьшает лимит устройств активной подписки на removeDevices
 // (но не ниже 1). Деньги не возвращаются. Если зарегистрированных устройств
 // стало больше нового лимита — удаляем самые новые записи из БД, освобождая слоты.
 // Возвращает новый лимит устройств.
 func (s *Subscription) RemoveDevice(ctx context.Context, userID int64, removeDevices int) (int, error) {
-	log := logger.L().With().Int64("user_id", userID).Int("remove", removeDevices).Logger()
-
 	sub, err := s.subs.GetActiveSubscription(ctx, userID)
 	if err != nil {
 		return 0, fmt.Errorf("removeDevice: %w", err)
@@ -196,44 +242,17 @@ func (s *Subscription) RemoveDevice(ctx context.Context, userID int64, removeDev
 	if newLimit < 1 {
 		newLimit = 1
 	}
-	actualRemoved := sub.DeviceLimit - newLimit
-	if actualRemoved <= 0 {
+	if newLimit == sub.DeviceLimit {
 		return sub.DeviceLimit, nil // уже на минимуме — ничего не делаем
 	}
 
-	// Уменьшаем лимит подключений в панели (addGB = 0, отрицательный delta устройств).
-	if err := s.xui.AddClientCapacity(ctx, sub.XUIEmailDirect, 0, -actualRemoved); err != nil {
-		return 0, fmt.Errorf("removeDevice: xui: %w", err)
-	}
-	if err := s.subs.UpdateSubscriptionDevices(ctx, sub.ID, newLimit, sub.TrafficGB); err != nil {
-		return 0, fmt.Errorf("removeDevice: db: %w", err)
-	}
-
-	// Освобождаем слоты: если зарегистрированных устройств больше нового лимита —
-	// удаляем самые новые записи из БД (последние подключившиеся).
-	if sub.XUISubID == "" {
-		if _, err := s.GetConfigURL(ctx, userID); err == nil {
-			if reloaded, rErr := s.subs.GetActiveSubscription(ctx, userID); rErr == nil {
-				sub = reloaded
-			}
-		}
-	}
-	if sub.XUISubID != "" {
-		count, err := s.devices.CountDeviceConnections(ctx, sub.XUISubID)
-		if err != nil {
-			log.Warn().Err(err).Msg("removeDevice: count connections failed")
-		} else if excess := count - newLimit; excess > 0 {
-			if err := s.devices.DeleteNewestDeviceConnections(ctx, sub.XUISubID, excess); err != nil {
-				log.Warn().Err(err).Int("excess", excess).Msg("removeDevice: delete excess failed")
-			} else {
-				log.Info().Int("excess", excess).Msg("removeDevice: freed device slots")
-			}
-		}
+	if err := s.setDeviceLimit(ctx, userID, sub, newLimit); err != nil {
+		return 0, fmt.Errorf("removeDevice: %w", err)
 	}
 
 	_ = s.audit.Log(ctx, &userID, "remove_device",
-		fmt.Sprintf(`{"sub_id":%d,"remove_devices":%d,"new_limit":%d}`, sub.ID, actualRemoved, newLimit))
-	log.Info().Int64("sub_id", sub.ID).Int("new_limit", newLimit).Msg("removeDevice: ok")
+		fmt.Sprintf(`{"sub_id":%d,"new_limit":%d}`, sub.ID, newLimit))
+	logger.L().Info().Int64("user_id", userID).Int64("sub_id", sub.ID).Int("new_limit", newLimit).Msg("removeDevice: ok")
 	return newLimit, nil
 }
 
@@ -389,6 +408,18 @@ func (s *Subscription) ProvisionFromPayment(
 	sub, err := s.GetActive(ctx, userID)
 	if err != nil {
 		return "", fmt.Errorf("provisionFromPayment: getActive after provision failed: %w", err)
+	}
+
+	// Приводим лимит устройств к выбранному в конструкторе значению. При создании
+	// подписки delta = 0 (Create уже выставил devices) — это no-op. При продлении
+	// активной подписки Renew срок продлил, но устройства не трогал — доводим здесь
+	// (увеличение добавляет слоты, уменьшение освобождает лишние, без возврата денег).
+	if devices > 0 && devices != sub.DeviceLimit {
+		if err := s.setDeviceLimit(ctx, userID, sub, devices); err != nil {
+			log.Error().Err(err).Int("target_devices", devices).Msg("provisionFromPayment: setDeviceLimit failed")
+		} else {
+			sub.DeviceLimit = devices
+		}
 	}
 
 	email := sub.XUIEmailDirect

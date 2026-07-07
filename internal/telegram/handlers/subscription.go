@@ -178,7 +178,7 @@ func SendSettings(c tele.Context, subSvc *service.Subscription) error {
 		"DaysBar":   daysBar,
 	})
 	return screen(c, "settings", text,
-		keyboard.SettingsKeyboard(sess.AddOnDevices, sess.AddonDevicesPrice(), sub.DeviceLimit),
+		keyboard.SettingsKeyboard(sess.AddOnDevices, sess.AddonDevicesPrice()),
 		&tele.SendOptions{ParseMode: tele.ModeHTML},
 	)
 }

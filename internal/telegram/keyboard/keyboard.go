@@ -25,11 +25,7 @@ var (
 	AddonDevInc = "addon_dev_inc"
 	BuyAddonDev = "buy_addon_dev"
 	RemoveDev   = "remove_dev"
-
-	RenewMonth1  = "renew_month_1"
-	RenewMonth3  = "renew_month_3"
-	RenewMonth6  = "renew_month_6"
-	RenewMonth12 = "renew_month_12"
+	RenewOpen   = "renew_open"
 
 	DeleteDevice = "delete_device"
 
@@ -196,16 +192,12 @@ func Constructor(s *session.ConstructorState, finalPrice int) *tele.ReplyMarkup 
 
 // SettingsKeyboard — экран «Мой тариф». Ряды:
 //   ➖ [+N устр.] ➕   — выбор количества добавляемых устройств
-//   💳 добавить N устр.  — покупка доп. устройств
+//   💳 добавить N устр.  — покупка доп. устройств (без продления срока)
 //   🗑 убрать устройство — уменьшить лимит (без возврата денег)
-//   Продлить: 1 / 3 / 6 / 12 мес — цена по текущему числу устройств
+//   🔄 Продлить / изменить тариф — открывает конструктор (устройства + срок)
 //   ◀️ Назад
-// devices — текущий лимит устройств подписки (для расчёта цены продления).
-func SettingsKeyboard(addDev, devPrice, devices int) *tele.ReplyMarkup {
+func SettingsKeyboard(addDev, devPrice int) *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
-	p := func(months int) string {
-		return fmt.Sprintf("%d мес · %d ₽", months, session.RenewPrice(devices, months))
-	}
 	m.Inline(
 		m.Row(
 			m.Data("➖", AddonDevDec),
@@ -214,14 +206,7 @@ func SettingsKeyboard(addDev, devPrice, devices int) *tele.ReplyMarkup {
 		),
 		m.Row(m.Data(fmt.Sprintf("💳 %d ₽ за устройство", devPrice), BuyAddonDev)),
 		m.Row(m.Data("🗑 Убрать устройство", RemoveDev)),
-		m.Row(
-			m.Data(p(1), RenewMonth1),
-			m.Data(p(3), RenewMonth3),
-		),
-		m.Row(
-			m.Data(p(6), RenewMonth6),
-			m.Data(p(12), RenewMonth12),
-		),
+		m.Row(m.Data("🔄 Продлить / изменить тариф", RenewOpen)),
 		m.Row(m.Data(texts.T("buttons.back"), Back)),
 	)
 	return m

@@ -16,6 +16,15 @@ func (s *ConstructorState) GetMonths() int  { return s.months }
 
 func (s *ConstructorState) SetMonths(m int) { s.months = m }
 
+// SetDevices задаёт число устройств (не ниже 1). Используется при открытии
+// конструктора для продления — предзаполняем текущим лимитом подписки.
+func (s *ConstructorState) SetDevices(d int) {
+	if d < 1 {
+		d = 1
+	}
+	s.devices = d
+}
+
 // AddDevices изменяет число устройств.
 func (s *ConstructorState) AddDevices(v int) {
 	s.devices += v
@@ -88,13 +97,6 @@ func (s *Session) ApplyDiscount(price int) int {
 
 func (s *Session) AddonDevicesPrice() int {
 	return s.AddOnDevices * config.Cfg.Bot.Constructor.PricePerDevice
-}
-
-// RenewPrice — цена продления на months месяцев для подписки с devices устройств.
-// Использует ту же формулу что и конструктор: (база + доп.устройства × цена) × месяцы × скидка.
-func RenewPrice(devices, months int) int {
-	cs := ConstructorState{devices: devices, months: months}
-	return cs.CalcPrice()
 }
 
 type Store struct {

@@ -41,11 +41,7 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevInc}, AddonDevInc(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.BuyAddonDev}, BuyAddonDevice(payment, user, sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.RemoveDev}, RemoveDeviceBtn(sub))
-
-	bot.Handle(&tele.Btn{Unique: keyboard.RenewMonth1}, RenewSub(1, payment, user, sub))
-	bot.Handle(&tele.Btn{Unique: keyboard.RenewMonth3}, RenewSub(3, payment, user, sub))
-	bot.Handle(&tele.Btn{Unique: keyboard.RenewMonth6}, RenewSub(6, payment, user, sub))
-	bot.Handle(&tele.Btn{Unique: keyboard.RenewMonth12}, RenewSub(12, payment, user, sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.RenewOpen}, OpenRenew(sub))
 
 	bot.Handle(&tele.Btn{Unique: keyboard.DeleteDevice}, DeleteDevice(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.Back}, BackToMenu(sub))
