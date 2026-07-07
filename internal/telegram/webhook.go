@@ -243,16 +243,25 @@ func (h *WebhookHandler) process(ctx context.Context, ykPayment *yookassa.Paymen
 
 	devicesStr := meta["devices"]
 	monthsStr := meta["months"]
-	if devicesStr == "" || monthsStr == "" {
+	daysStr := meta["days"]
+
+	if devicesStr == "" || (monthsStr == "" && daysStr == "") {
 		log.Warn().Msg("process: missing subscription metadata")
 		h.send(tgID, texts.T("error.incomplete_metadata"))
 		return
 	}
 	devices, _ := strconv.Atoi(devicesStr)
-	months, _ := strconv.Atoi(monthsStr)
 
-	log.Info().Int("devices", devices).Int("months", months).Msg("process: provisioning subscription")
-	subURL, err := h.sub.ProvisionFromPayment(ctx, tgID, devices, months)
+	var subURL string
+	if daysStr != "" {
+		days, _ := strconv.Atoi(daysStr)
+		log.Info().Int("devices", devices).Int("days", days).Msg("process: provisioning subscription (days)")
+		subURL, err = h.sub.ProvisionFromPaymentDays(ctx, tgID, devices, days)
+	} else {
+		months, _ := strconv.Atoi(monthsStr)
+		log.Info().Int("devices", devices).Int("months", months).Msg("process: provisioning subscription")
+		subURL, err = h.sub.ProvisionFromPayment(ctx, tgID, devices, months)
+	}
 	if err != nil {
 		log.Error().Err(err).Msg("process: ProvisionFromPayment failed")
 		h.send(tgID, texts.T("error.provision"))
