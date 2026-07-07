@@ -90,6 +90,13 @@ func (s *Session) AddonDevicesPrice() int {
 	return s.AddOnDevices * config.Cfg.Bot.Constructor.PricePerDevice
 }
 
+// RenewPrice — цена продления на months месяцев для подписки с devices устройств.
+// Использует ту же формулу что и конструктор: (база + доп.устройства × цена) × месяцы × скидка.
+func RenewPrice(devices, months int) int {
+	cs := ConstructorState{devices: devices, months: months}
+	return cs.CalcPrice()
+}
+
 type Store struct {
 	mu   sync.Mutex
 	data map[int64]*Session

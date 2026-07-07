@@ -12,6 +12,8 @@ import (
 
 	tele "gopkg.in/telebot.v3"
 	yookassa "vpnbottg/internal/client/yookassa"
+
+	"github.com/rs/zerolog"
 )
 
 func DevicesDec(c tele.Context) error {
@@ -128,7 +130,7 @@ func Buy(paymentServ *service.PaymentService, userSvc *service.User, sub *servic
 	}
 }
 
-func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *service.User, promo *service.PromoService) tele.HandlerFunc {
+func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *service.User, promo *service.PromoService, ref *service.ReferralService) tele.HandlerFunc {
 	return func(c tele.Context) error {
 		log := logger.L().With().Str("func", "CheckPayment").Int64("user_id", c.Sender().ID).Logger()
 
@@ -149,6 +151,30 @@ func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *s
 		_ = handlers.PaymentProcessing(c)
 
 		ctx := context.Background()
+
+		// Confirm ПЕРВЫМ — он идемпотентен (changed=true только при первом подтверждении).
+		// Списание баланса/промо и реферальный кешбэк делаем строго при changed==true,
+		// иначе webhook/поллер и ручная проверка обработали бы платёж дважды
+		// (двойное списание баланса, повторное начисление кешбэка).
+		changed, err := yk.Confirm(ctx, payment.ID)
+		if err != nil {
+			log.Error().Err(err).Msg("CheckPayment: Confirm failed")
+			return editOrFresh(c, texts.T("check_payment.error_confirm"))
+		}
+		if !changed {
+			log.Info().Msg("CheckPayment: already confirmed — checking subscription")
+			if _, subErr := sub.GetActive(ctx, c.Sender().ID); subErr == nil {
+				return handlers.AlreadyProvisioned(c, sub)
+			}
+			log.Info().Msg("CheckPayment: orphaned payment — retrying provision")
+			_ = handlers.PaymentProcessing(c)
+			return provision(c, ctx, payment.Metadata, sub)
+		}
+
+		if err := user.EnsureUser(ctx, c.Sender().ID, c.Sender().Username, c.Sender().FirstName, nil); err != nil {
+			log.Error().Err(err).Msg("CheckPayment: EnsureUser failed")
+			return handlers.EnsureUserError(c)
+		}
 
 		// Списываем промо-скидку (если была).
 		if promo != nil {
@@ -171,28 +197,44 @@ func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *s
 			}
 		}
 
-		changed, err := yk.Confirm(ctx, payment.ID)
-		if err != nil {
-			log.Error().Err(err).Msg("CheckPayment: Confirm failed")
-			return editOrFresh(c, texts.T("check_payment.error_confirm"))
-		}
-		if !changed {
-			log.Info().Msg("CheckPayment: already confirmed — checking subscription")
-			if _, subErr := sub.GetActive(ctx, c.Sender().ID); subErr == nil {
-				return handlers.AlreadyProvisioned(c, sub)
+		// Реферальный кешбэк — от суммы реальной оплаты (не от баланса).
+		if ref != nil {
+			if dbPayment, err := yk.GetPaymentByProviderID(ctx, payment.ID); err != nil {
+				log.Error().Err(err).Msg("CheckPayment: GetPaymentByProviderID for referral failed")
+			} else {
+				rewardReferrerTG(c, ctx, ref, user, c.Sender().ID, dbPayment.Amount, log)
 			}
-			log.Info().Msg("CheckPayment: orphaned payment — retrying provision")
-			_ = handlers.PaymentProcessing(c)
-			return provision(c, ctx, payment.Metadata, sub)
-		}
-
-		if err := user.EnsureUser(ctx, c.Sender().ID, c.Sender().Username, c.Sender().FirstName, nil); err != nil {
-			log.Error().Err(err).Msg("CheckPayment: EnsureUser failed")
-			return handlers.EnsureUserError(c)
 		}
 
 		return provision(c, ctx, payment.Metadata, sub)
 	}
+}
+
+// rewardReferrerTG начисляет реферреру кешбэк за оплату реферала и уведомляет его.
+// Используется в путях подтверждения, где есть tele.Context (ручная проверка оплаты).
+func rewardReferrerTG(c tele.Context, ctx context.Context, ref *service.ReferralService, user *service.User, refereeID, paymentRub int64, log zerolog.Logger) {
+	referrerID, rewardRub, err := ref.RewardBalance(ctx, refereeID, paymentRub)
+	if err != nil {
+		log.Error().Err(err).Msg("rewardReferrerTG: failed")
+		return
+	}
+	if referrerID == 0 {
+		return
+	}
+	refUser, _ := user.GetUser(ctx, refereeID)
+	name := "Друг"
+	if refUser != nil {
+		if refUser.Username != "" {
+			name = "@" + refUser.Username
+		} else if refUser.FirstName != "" {
+			name = refUser.FirstName
+		}
+	}
+	text := texts.T("referral.reward", map[string]any{"Name": name, "Amount": rewardRub})
+	if _, err := c.Bot().Send(&tele.User{ID: referrerID}, text, &tele.SendOptions{ParseMode: tele.ModeHTML}); err != nil {
+		log.Error().Err(err).Int64("referrer_id", referrerID).Msg("rewardReferrerTG: notify failed")
+	}
+	log.Info().Int64("referrer_id", referrerID).Int64("reward_rub", rewardRub).Msg("rewardReferrerTG: notified")
 }
 
 // provision диспетчеризует выдачу по типу платежа из метаданных.

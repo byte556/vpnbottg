@@ -97,3 +97,36 @@ func (d *DB) DeleteDeviceConnectionByID(ctx context.Context, subID string, devic
 	}
 	return nil
 }
+
+// CountDeviceConnections возвращает число зарегистрированных устройств подписки.
+func (d *DB) CountDeviceConnections(ctx context.Context, subID string) (int, error) {
+	var n int
+	err := d.sql.QueryRowContext(ctx,
+		`SELECT COUNT(*) FROM device_connections WHERE sub_id = ?`, subID).Scan(&n)
+	if err != nil {
+		return 0, fmt.Errorf("countDeviceConnections: %w", err)
+	}
+	return n, nil
+}
+
+// DeleteNewestDeviceConnections удаляет n самых новых устройств подписки
+// (по last_seen, затем id). Используется при уменьшении лимита устройств —
+// освобождаем слоты сверх нового лимита, начиная с недавно подключённых.
+func (d *DB) DeleteNewestDeviceConnections(ctx context.Context, subID string, n int) error {
+	if n <= 0 {
+		return nil
+	}
+	_, err := d.sql.ExecContext(ctx, `
+		DELETE FROM device_connections
+		WHERE id IN (
+			SELECT id FROM device_connections
+			WHERE sub_id = ?
+			ORDER BY last_seen DESC, id DESC
+			LIMIT ?
+		)
+	`, subID, n)
+	if err != nil {
+		return fmt.Errorf("deleteNewestDeviceConnections: %w", err)
+	}
+	return nil
+}

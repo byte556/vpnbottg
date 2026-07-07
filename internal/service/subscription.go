@@ -180,6 +180,63 @@ func (s *Subscription) AddDevice(ctx context.Context, userID int64, addDevices i
 	return nil
 }
 
+// RemoveDevice уменьшает лимит устройств активной подписки на removeDevices
+// (но не ниже 1). Деньги не возвращаются. Если зарегистрированных устройств
+// стало больше нового лимита — удаляем самые новые записи из БД, освобождая слоты.
+// Возвращает новый лимит устройств.
+func (s *Subscription) RemoveDevice(ctx context.Context, userID int64, removeDevices int) (int, error) {
+	log := logger.L().With().Int64("user_id", userID).Int("remove", removeDevices).Logger()
+
+	sub, err := s.subs.GetActiveSubscription(ctx, userID)
+	if err != nil {
+		return 0, fmt.Errorf("removeDevice: %w", err)
+	}
+
+	newLimit := sub.DeviceLimit - removeDevices
+	if newLimit < 1 {
+		newLimit = 1
+	}
+	actualRemoved := sub.DeviceLimit - newLimit
+	if actualRemoved <= 0 {
+		return sub.DeviceLimit, nil // уже на минимуме — ничего не делаем
+	}
+
+	// Уменьшаем лимит подключений в панели (addGB = 0, отрицательный delta устройств).
+	if err := s.xui.AddClientCapacity(ctx, sub.XUIEmailDirect, 0, -actualRemoved); err != nil {
+		return 0, fmt.Errorf("removeDevice: xui: %w", err)
+	}
+	if err := s.subs.UpdateSubscriptionDevices(ctx, sub.ID, newLimit, sub.TrafficGB); err != nil {
+		return 0, fmt.Errorf("removeDevice: db: %w", err)
+	}
+
+	// Освобождаем слоты: если зарегистрированных устройств больше нового лимита —
+	// удаляем самые новые записи из БД (последние подключившиеся).
+	if sub.XUISubID == "" {
+		if _, err := s.GetConfigURL(ctx, userID); err == nil {
+			if reloaded, rErr := s.subs.GetActiveSubscription(ctx, userID); rErr == nil {
+				sub = reloaded
+			}
+		}
+	}
+	if sub.XUISubID != "" {
+		count, err := s.devices.CountDeviceConnections(ctx, sub.XUISubID)
+		if err != nil {
+			log.Warn().Err(err).Msg("removeDevice: count connections failed")
+		} else if excess := count - newLimit; excess > 0 {
+			if err := s.devices.DeleteNewestDeviceConnections(ctx, sub.XUISubID, excess); err != nil {
+				log.Warn().Err(err).Int("excess", excess).Msg("removeDevice: delete excess failed")
+			} else {
+				log.Info().Int("excess", excess).Msg("removeDevice: freed device slots")
+			}
+		}
+	}
+
+	_ = s.audit.Log(ctx, &userID, "remove_device",
+		fmt.Sprintf(`{"sub_id":%d,"remove_devices":%d,"new_limit":%d}`, sub.ID, actualRemoved, newLimit))
+	log.Info().Int64("sub_id", sub.ID).Int("new_limit", newLimit).Msg("removeDevice: ok")
+	return newLimit, nil
+}
+
 func (s *Subscription) ListDevices(ctx context.Context, userID int64) (*models.Subscription, []*models.DeviceConnection, error) {
 	sub, err := s.subs.GetActiveSubscription(ctx, userID)
 	if err != nil {

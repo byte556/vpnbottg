@@ -68,6 +68,11 @@ type DeviceConnections interface {
 	AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (allowed, isNew bool, err error)
 	ListDeviceConnections(ctx context.Context, subID string) ([]*models.DeviceConnection, error)
 	DeleteDeviceConnectionByID(ctx context.Context, subID string, deviceConnID int64) error
+	// CountDeviceConnections возвращает число зарегистрированных устройств подписки.
+	CountDeviceConnections(ctx context.Context, subID string) (int, error)
+	// DeleteNewestDeviceConnections удаляет n самых новых устройств подписки
+	// (по last_seen). Освобождает слоты при уменьшении лимита устройств.
+	DeleteNewestDeviceConnections(ctx context.Context, subID string, n int) error
 	// DeleteDeviceConnectionsBySubID удаляет все устройства подписки
 	// (свежие слоты при выдаче новой подписки с тем же subId).
 	DeleteDeviceConnectionsBySubID(ctx context.Context, subID string) error

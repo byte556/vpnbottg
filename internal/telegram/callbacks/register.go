@@ -35,11 +35,17 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 	bot.Handle(&tele.Btn{Unique: keyboard.TrialBuy}, TrialBuy(payment, user))
 
 	bot.Handle(&tele.Btn{Unique: keyboard.Buy}, Buy(payment, user, sub, promo))
-	bot.Handle(&tele.Btn{Unique: keyboard.CheckPayment}, CheckPayment(payment, sub, user, promo))
+	bot.Handle(&tele.Btn{Unique: keyboard.CheckPayment}, CheckPayment(payment, sub, user, promo, ref))
 
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevDec}, AddonDevDec(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevInc}, AddonDevInc(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.BuyAddonDev}, BuyAddonDevice(payment, user, sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.RemoveDev}, RemoveDeviceBtn(sub))
+
+	bot.Handle(&tele.Btn{Unique: keyboard.RenewMonth1}, RenewSub(1, payment, user, sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.RenewMonth3}, RenewSub(3, payment, user, sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.RenewMonth6}, RenewSub(6, payment, user, sub))
+	bot.Handle(&tele.Btn{Unique: keyboard.RenewMonth12}, RenewSub(12, payment, user, sub))
 
 	bot.Handle(&tele.Btn{Unique: keyboard.DeleteDevice}, DeleteDevice(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.Back}, BackToMenu(sub))
