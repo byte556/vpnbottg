@@ -305,6 +305,19 @@ func (c *Client) SetClientSubID(ctx context.Context, email, subID string) error 
 	return nil
 }
 
+// ResetClient принудительно включает клиента (enable: true) и выставляет новые
+// totalGB, срок и limitIp. Нужен при повторной покупке после истечения подписки:
+// AddClient при "email already in use" не трогает существующего клиента, и тот
+// может остаться выключенным (после DisableClient из reminder'а) со старым сроком —
+// тогда панель отдаёт по ссылке подписки 404/пустой конфиг.
+func (c *Client) ResetClient(ctx context.Context, email string, totalGB int, expiryTime time.Time, limitIP int) error {
+	cl, err := c.GetClient(ctx, email)
+	if err != nil {
+		return fmt.Errorf("resetClient %s: %w", email, err)
+	}
+	return c.updateClientFull(ctx, cl, totalGB, expiryTime, limitIP)
+}
+
 // DeleteClient удаляет клиента из панели по email.
 // Если клиент не найден — не возвращает ошибку (идемпотентно).
 func (c *Client) DeleteClient(ctx context.Context, email string) error {

@@ -59,6 +59,23 @@ func (s *Subscription) Create(ctx context.Context, userID int64, planDays, devic
 		return nil, fmt.Errorf("createSubscription get client: %w", err)
 	}
 
+	// ВАЖНО: клиент мог остаться от прошлой (истёкшей) подписки — выключенным
+	// (reminder делает DisableClient) и со старым сроком: AddClient при
+	// "email already in use" его не трогает. Тогда ссылка подписки отдаёт
+	// 404/пустой конфиг. Принудительно включаем и выставляем новые срок/лимит.
+	if err := s.xui.ResetClient(ctx, email, 0, expiresAt, deviceLimit); err != nil {
+		log.Error().Err(err).Msg("createSubscription: xui resetClient failed")
+		return nil, fmt.Errorf("createSubscription reset client: %w", err)
+	}
+
+	// Чистим учёт устройств прошлой подписки с тем же subId — новая покупка
+	// получает свежие слоты, устройства перерегистрируются при первом запросе.
+	if directClient.SubID != "" {
+		if err := s.devices.DeleteDeviceConnectionsBySubID(ctx, directClient.SubID); err != nil {
+			log.Warn().Err(err).Str("xui_sub_id", directClient.SubID).Msg("createSubscription: clear old devices failed")
+		}
+	}
+
 	sub := &models.Subscription{
 		UserID:         userID,
 		XUIEmailDirect: email, // безлимит

@@ -36,9 +36,6 @@ func Month(months int) tele.HandlerFunc {
 		sess.PaymentID = ""
 		sess.Constructor.SetMonths(months)
 		session.GetStore().Save(c.Sender().ID, sess)
-		if sess.RenewMode {
-			return handlers.RenewRender(c)
-		}
 		return handlers.Constructor(c)
 	}
 }

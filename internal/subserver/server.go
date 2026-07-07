@@ -1,5 +1,6 @@
 // Package subserver — отдельный HTTP-сервер выдачи подписок.
 //
+//	GET /              — корневой лендинг VEXA VPN с кнопкой «Открыть в Telegram».
 //	GET /sub/{sub_id} — сырой конфиг для VPN-клиента (happ). Проксирует подписку
 //	  из панели 3X-UI. Устройство идентифицируется по HWID (x-hwid от Happ) и
 //	  фиксируется в device_connections. Если HWID не прислан или новое устройство
@@ -38,14 +39,18 @@ var upstreamHeaders = []string{
 type Server struct {
 	upstreamTemplate string // fmt-шаблон URL подписки в панели, напр. "https://panel/sub/%s"
 	publicBaseURL    string // внешний адрес этого сервера (для ссылок на странице)
+	botURL           string // ссылка на Telegram-бота для лендинга (пусто = кнопка скрыта)
+	support          string // контакт поддержки для лендинга, напр. "@byttte"
 	repo             DeviceAuthorizer
 	http             *http.Client
 }
 
-func New(upstreamTemplate, publicBaseURL string, repo DeviceAuthorizer) *Server {
+func New(upstreamTemplate, publicBaseURL, botURL, support string, repo DeviceAuthorizer) *Server {
 	return &Server{
 		upstreamTemplate: upstreamTemplate,
 		publicBaseURL:    strings.TrimRight(publicBaseURL, "/"),
+		botURL:           strings.TrimSpace(botURL),
+		support:          strings.TrimSpace(support),
 		repo:             repo,
 		http: &http.Client{
 			Timeout: 15 * time.Second,
@@ -59,6 +64,7 @@ func New(upstreamTemplate, publicBaseURL string, repo DeviceAuthorizer) *Server 
 // Handler возвращает маршрутизатор sub-сервера.
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
+	mux.HandleFunc("GET /{$}", s.handleLanding)
 	mux.HandleFunc("GET /sub/{sub_id}", s.handleSub)
 	mux.HandleFunc("GET /p/{sub_id}", s.handlePage)
 	return mux
@@ -124,6 +130,12 @@ func (s *Server) handleSub(w http.ResponseWriter, r *http.Request) {
 
 	w.WriteHeader(status)
 	_, _ = w.Write(body)
+	if status != http.StatusOK || len(body) == 0 {
+		// Панель не знает такой subId или клиент выключен/удалён —
+		// пользователь получает пустой конфиг. Это всегда проблема выдачи.
+		log.Warn().Int("status", status).Int("bytes", len(body)).Msg("sub: upstream returned empty/error config")
+		return
+	}
 	log.Info().Int("status", status).Int("bytes", len(body)).Msg("sub: served")
 }
 

@@ -21,11 +21,6 @@ var (
 	Buy          = "buy"
 	CheckPayment = "check_payment"
 
-	// Продление текущей подписки (устройства фикс.).
-	NavRenew   = "nav_renew"
-	RenewBuy   = "renew_buy"
-	ChangePlan = "change_plan"
-
 	AddonDevDec = "addon_dev_dec"
 	AddonDevInc = "addon_dev_inc"
 	BuyAddonDev = "buy_addon_dev"
@@ -77,10 +72,10 @@ func MenuBar() *tele.ReplyMarkup {
 }
 
 // RenewKeyboard — кнопка продления для напоминаний об истечении подписки.
-// Ведёт на экран продления (те же устройства, выбор только срока).
+// Ведёт в конструктор покупки (тот же callback, что «🚀 Купить VPN»).
 func RenewKeyboard() *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
-	m.Inline(m.Row(m.Data(texts.T("buttons.renew"), NavRenew)))
+	m.Inline(m.Row(m.Data(texts.T("buttons.renew"), NavBuy)))
 	return m
 }
 
@@ -180,39 +175,6 @@ func Constructor(s *session.ConstructorState, finalPrice int) *tele.ReplyMarkup 
 		m.Row(monthBtn(1), monthBtn(3), monthBtn(6), monthBtn(12)),
 		m.Row(m.Data(buyLabel, Buy)),
 		m.Row(m.Data(texts.T("buttons.back"), Back)),
-	)
-
-	return m
-}
-
-// RenewConstructor — экран продления: устройства фикс. (из текущей подписки),
-// пользователь выбирает только срок. Плюс «🔄 Сменить тариф» → полный конструктор.
-func RenewConstructor(s *session.ConstructorState, finalPrice int) *tele.ReplyMarkup {
-	m := &tele.ReplyMarkup{}
-
-	monthBtn := func(n int) tele.Btn {
-		var label string
-		switch n {
-		case 12:
-			label = "🔥 12 мес"
-		default:
-			label = fmt.Sprintf("%d мес", n)
-		}
-		if s.GetMonths() == n {
-			label = "✅ " + label
-		}
-		return m.Data(label, fmt.Sprintf("month_%d", n))
-	}
-
-	buyLabel := texts.T("constructor.buttons.buy", map[string]any{"Price": finalPrice})
-
-	m.Inline(
-		m.Row(monthBtn(1), monthBtn(3), monthBtn(6), monthBtn(12)),
-		m.Row(m.Data(buyLabel, RenewBuy)),
-		m.Row(
-			m.Data(texts.T("renew.buttons.change_plan"), ChangePlan),
-			m.Data(texts.T("buttons.back"), Back),
-		),
 	)
 
 	return m

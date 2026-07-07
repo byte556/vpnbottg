@@ -30,3 +30,4 @@ sub_server:
   port: 8081                                                       # 0 = выключить sub-сервер
   public_base_url: "https://vpn.example.com:8081"                  # внешний адрес sub-сервера
   upstream_template: "https://your-panel.example.com:54321/sub/%s" # откуда забирать конфиг из панели
+  bot_url: "https://t.me/your_bot"                                 # ссылка на бота для лендинга на "/" (пусто = кнопка скрыта)

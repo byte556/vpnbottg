@@ -64,6 +64,9 @@ type DeviceConnections interface {
 	AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (bool, error)
 	ListDeviceConnections(ctx context.Context, subID string) ([]*models.DeviceConnection, error)
 	DeleteDeviceConnectionByID(ctx context.Context, subID string, deviceConnID int64) error
+	// DeleteDeviceConnectionsBySubID удаляет все устройства подписки
+	// (свежие слоты при выдаче новой подписки с тем же subId).
+	DeleteDeviceConnectionsBySubID(ctx context.Context, subID string) error
 }
 
 // ErrPromoLimitReached — у промокода исчерпан лимит активаций (used_count >= max_uses) или он неактивен.

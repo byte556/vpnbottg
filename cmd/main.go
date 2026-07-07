@@ -112,6 +112,8 @@ func main() {
 		ss := subserver.New(
 			config.Cfg.SubServer.UpstreamTemplate,
 			config.Cfg.SubServer.PublicBaseURL,
+			config.Cfg.SubServer.BotURL,
+			config.Cfg.Bot.Support,
 			db,
 		)
 		subSrv = &http.Server{

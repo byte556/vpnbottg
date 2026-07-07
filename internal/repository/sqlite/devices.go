@@ -67,6 +67,19 @@ func (d *DB) ListDeviceConnections(ctx context.Context, subID string) ([]*models
 	return result, rows.Err()
 }
 
+// DeleteDeviceConnectionsBySubID удаляет все устройства подписки —
+// используется при выдаче новой подписки с тем же subId (свежие слоты).
+func (d *DB) DeleteDeviceConnectionsBySubID(ctx context.Context, subID string) error {
+	_, err := d.sql.ExecContext(ctx, `
+		DELETE FROM device_connections
+		WHERE sub_id = ?
+	`, subID)
+	if err != nil {
+		return fmt.Errorf("deleteDeviceConnectionsBySubID: %w", err)
+	}
+	return nil
+}
+
 func (d *DB) DeleteDeviceConnectionByID(ctx context.Context, subID string, deviceConnID int64) error {
 	_, err := d.sql.ExecContext(ctx, `
 		DELETE FROM device_connections

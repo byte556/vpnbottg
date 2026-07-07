@@ -59,6 +59,7 @@ type SubServer struct {
 	Port             int    `yaml:"port"`              // порт sub-сервера (0 = выключен)
 	PublicBaseURL    string `yaml:"public_base_url"`   // внешний адрес сервера, напр. "https://vpn.example.com:8081"
 	UpstreamTemplate string `yaml:"upstream_template"` // fmt-шаблон URL подписки в панели, напр. "https://panel/sub/%s"
+	BotURL           string `yaml:"bot_url"`           // ссылка на Telegram-бота для лендинга на "/" (пусто = кнопка скрыта)
 }
 
 type Config struct {

@@ -14,14 +14,6 @@ type ConstructorState struct {
 func (s *ConstructorState) GetDevices() int { return s.devices }
 func (s *ConstructorState) GetMonths() int  { return s.months }
 
-// SetDevices задаёт число устройств (для режима продления — фикс. из подписки).
-func (s *ConstructorState) SetDevices(d int) {
-	if d < 1 {
-		d = 1
-	}
-	s.devices = d
-}
-
 func (s *ConstructorState) SetMonths(m int) { s.months = m }
 
 // AddDevices изменяет число устройств.
@@ -84,10 +76,6 @@ type Session struct {
 	PromoDiscountPct int
 	// AwaitPromo — ждём от пользователя ввод промокода следующим сообщением.
 	AwaitPromo bool
-
-	// RenewMode — режим продления текущей подписки: устройства фикс. из подписки,
-	// пользователь выбирает только срок. false — обычный конструктор.
-	RenewMode bool
 }
 
 // ApplyDiscount применяет активную промо-скидку к цене (округление вниз).

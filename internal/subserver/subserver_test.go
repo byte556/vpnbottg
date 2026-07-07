@@ -47,7 +47,7 @@ func TestHandlePage(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", nil)
+	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", nil)
 
 	req := httptest.NewRequest("GET", "/p/abc123", nil)
 	req.SetPathValue("sub_id", "abc123")
@@ -79,6 +79,50 @@ func TestHandlePage(t *testing.T) {
 	}
 }
 
+func TestHandleLanding(t *testing.T) {
+	s := New("http://unused/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", nil)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	rec := httptest.NewRecorder()
+	s.handleLanding(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	body := rec.Body.String()
+	checks := map[string]string{
+		"https://t.me/vexa_bot":  "telegram bot link",
+		"Открыть в Telegram":     "cta button",
+		"https://t.me/byttte":    "support link (без @)",
+		"@byttte":                "support handle",
+	}
+	for substr, what := range checks {
+		if !strings.Contains(body, substr) {
+			t.Errorf("landing missing %s (%q)", what, substr)
+		}
+	}
+	// Ссылки не должны быть нейтрализованы санитайзером html/template.
+	if strings.Contains(body, "ZgotmplZ") {
+		t.Error("landing link was neutralized by template sanitizer")
+	}
+}
+
+// Без bot_url кнопка «Открыть в Telegram» не рендерится.
+func TestHandleLandingNoBotURL(t *testing.T) {
+	s := New("http://unused/%s", "https://vpn.example.com:8081", "", "", nil)
+
+	req := httptest.NewRequest("GET", "/", nil)
+	rec := httptest.NewRecorder()
+	s.handleLanding(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if strings.Contains(rec.Body.String(), "Открыть в Telegram") {
+		t.Error("cta button must be hidden when bot_url is empty")
+	}
+}
+
 // Устройство в пределах лимита: x-hwid есть, authorize=allowed → конфиг отдаётся,
 // platform берётся из x-device-os, UA сохраняется.
 func TestHandleSubAllowsDevice(t *testing.T) {
@@ -90,7 +134,7 @@ func TestHandleSubAllowsDevice(t *testing.T) {
 	defer upstream.Close()
 
 	repo := &fakeDeviceRepo{allowed: true}
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", repo)
+	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", repo)
 
 	req := httptest.NewRequest("GET", "/sub/abc123", nil)
 	req.SetPathValue("sub_id", "abc123")
@@ -122,7 +166,7 @@ func TestHandleSubBlocksOverLimit(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", &fakeDeviceRepo{allowed: false})
+	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", &fakeDeviceRepo{allowed: false})
 
 	req := httptest.NewRequest("GET", "/sub/abc123", nil)
 	req.SetPathValue("sub_id", "abc123")
@@ -149,7 +193,7 @@ func TestHandleSubRequiresHWID(t *testing.T) {
 	defer upstream.Close()
 
 	repo := &fakeDeviceRepo{allowed: true}
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", repo)
+	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", repo)
 
 	req := httptest.NewRequest("GET", "/sub/abc123", nil)
 	req.SetPathValue("sub_id", "abc123")
@@ -172,7 +216,7 @@ func TestHandleSubFailOpenOnDBError(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", &fakeDeviceRepo{err: errors.New("db down")})
+	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", &fakeDeviceRepo{err: errors.New("db down")})
 
 	req := httptest.NewRequest("GET", "/sub/abc123", nil)
 	req.SetPathValue("sub_id", "abc123")
