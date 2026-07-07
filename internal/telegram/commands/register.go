@@ -26,10 +26,17 @@ func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.Refer
 	inviteHandler := handlers.Invite(bot.Me.Username, refSvc)
 
 	bot.Handle("/start", func(c tele.Context) error {
+		ctx := context.Background()
+		s := c.Sender()
+
+		if err := user.EnsureUser(ctx, s.ID, s.Username, s.FirstName, nil); err != nil {
+			logger.L().Error().Err(err).Int64("tg_id", s.ID).Msg("start: EnsureUser failed")
+		}
+
 		if refSvc != nil {
 			if payload := c.Message().Payload; strings.HasPrefix(payload, "ref_") {
 				if refID, err := strconv.ParseInt(strings.TrimPrefix(payload, "ref_"), 10, 64); err == nil {
-					if err := refSvc.Record(context.Background(), c.Sender().ID, refID); err != nil {
+					if err := refSvc.Record(ctx, s.ID, refID); err != nil {
 						logger.L().Warn().Err(err).Msg("start: record referral failed")
 					}
 				}
