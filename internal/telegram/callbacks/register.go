@@ -39,7 +39,7 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevDec}, AddonDevDec(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevInc}, AddonDevInc(sub))
-	bot.Handle(&tele.Btn{Unique: keyboard.BuyAddonDev}, BuyAddonDevice(payment, user))
+	bot.Handle(&tele.Btn{Unique: keyboard.BuyAddonDev}, BuyAddonDevice(payment, user, sub))
 
 	bot.Handle(&tele.Btn{Unique: keyboard.DeleteDevice}, DeleteDevice(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.Back}, BackToMenu(sub))

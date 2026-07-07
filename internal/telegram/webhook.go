@@ -236,6 +236,15 @@ func (h *WebhookHandler) process(ctx context.Context, ykPayment *yookassa.Paymen
 			h.send(tgID, texts.T("error.provision"))
 			return
 		}
+		if balStr := meta["balance_used"]; balStr != "" {
+			if bal, _ := strconv.ParseInt(balStr, 10, 64); bal > 0 {
+				if deducted, err := h.user.DeductBalance(ctx, tgID, bal); err != nil {
+					log.Error().Err(err).Int64("balance_used", bal).Msg("process: DeductBalance failed")
+				} else {
+					log.Info().Int64("deducted", deducted).Msg("process: balance deducted (addon)")
+				}
+			}
+		}
 		h.send(tgID, texts.T("addon.device_success", map[string]any{"Devices": amount}))
 		h.sendSubscriberMenu(ctx, tgID)
 		return

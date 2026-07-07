@@ -3,6 +3,7 @@ package callbacks
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"vpnbottg/internal/client/yookassa"
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/service"
@@ -34,27 +35,55 @@ func AddonDevInc(subSvc *service.Subscription) tele.HandlerFunc {
 	}
 }
 
-func BuyAddonDevice(paymentServ *service.PaymentService, userSvc *service.User) tele.HandlerFunc {
+func BuyAddonDevice(paymentServ *service.PaymentService, userSvc *service.User, subSvc *service.Subscription) tele.HandlerFunc {
 	return func(c tele.Context) error {
 		log := logger.L().With().Str("func", "BuyAddonDevice").Int64("user_id", c.Sender().ID).Logger()
+		ctx := context.Background()
 
 		sess := session.GetStore().Get(c.Sender().ID)
-		if err := userSvc.EnsureUser(context.Background(), c.Sender().ID, c.Sender().Username, c.Sender().FirstName, nil); err != nil {
+		if err := userSvc.EnsureUser(ctx, c.Sender().ID, c.Sender().Username, c.Sender().FirstName, nil); err != nil {
 			log.Error().Err(err).Msg("BuyAddonDevice: EnsureUser failed")
 			return handlers.PaymentError(c)
 		}
 
 		price := sess.AddonDevicesPrice()
-		log.Info().Int("devices", sess.AddOnDevices).Int("price", price).Msg("BuyAddonDevice: initiating payment")
+
+		balance, _ := userSvc.GetBalance(ctx, c.Sender().ID)
+		balanceUsed := balance
+		if balanceUsed > int64(price) {
+			balanceUsed = int64(price)
+		}
+		toPay := int64(price) - balanceUsed
+
+		log.Info().Int("devices", sess.AddOnDevices).Int("price", price).Int64("balance", balance).Int64("balance_used", balanceUsed).Int64("to_pay", toPay).Msg("BuyAddonDevice: calculated")
+
+		if toPay <= 0 {
+			log.Info().Msg("BuyAddonDevice: fully covered by balance")
+			if _, err := userSvc.DeductBalance(ctx, c.Sender().ID, balanceUsed); err != nil {
+				log.Error().Err(err).Msg("BuyAddonDevice: DeductBalance failed")
+				return handlers.PaymentError(c)
+			}
+			_ = handlers.PaymentProcessing(c)
+			if err := subSvc.AddDevice(ctx, c.Sender().ID, sess.AddOnDevices); err != nil {
+				log.Error().Err(err).Msg("BuyAddonDevice: AddDevice failed")
+				return handlers.ProvisionError(c)
+			}
+			return AddonSuccess(c, sess.AddOnDevices, subSvc)
+		}
+
+		metadata := map[string]string{
+			"tg_id":      fmt.Sprintf("%d", c.Sender().ID),
+			"addon_type": "device",
+			"amount":     fmt.Sprintf("%d", sess.AddOnDevices),
+		}
+		if balanceUsed > 0 {
+			metadata["balance_used"] = strconv.FormatInt(balanceUsed, 10)
+		}
 
 		ykPayment, _, err := paymentServ.InitiatePayment(c.Sender().ID, yookassa.CreatePaymentReq{
-			AmountRub:   price,
+			AmountRub:   int(toPay),
 			Description: fmt.Sprintf("Добавление %d устр.", sess.AddOnDevices),
-			Metadata: map[string]string{
-				"tg_id":      fmt.Sprintf("%d", c.Sender().ID),
-				"addon_type": "device",
-				"amount":     fmt.Sprintf("%d", sess.AddOnDevices),
-			},
+			Metadata:    metadata,
 		})
 		if err != nil {
 			log.Error().Err(err).Msg("BuyAddonDevice: InitiatePayment failed")
@@ -64,7 +93,7 @@ func BuyAddonDevice(paymentServ *service.PaymentService, userSvc *service.User) 
 		sess.PaymentID = ykPayment.ID
 		sess.PaymentURL = ykPayment.ConfirmationURL
 		session.GetStore().Save(c.Sender().ID, sess)
-		log.Info().Str("yk_id", ykPayment.ID).Msg("BuyAddonDevice: payment created")
+		log.Info().Str("yk_id", ykPayment.ID).Int64("to_pay", toPay).Msg("BuyAddonDevice: payment created")
 
 		return handlers.PaymentPending(c)
 	}
