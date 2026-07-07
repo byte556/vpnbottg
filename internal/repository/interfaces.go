@@ -13,6 +13,9 @@ type Users interface {
 	GetUser(ctx context.Context, tgID int64) (*models.User, error)
 	SearchUserByUsername(ctx context.Context, username string) (*models.User, error)
 	GetAllUserIDs(ctx context.Context) ([]int64, error)
+	GetBalance(ctx context.Context, userID int64) (int64, error)
+	AddBalance(ctx context.Context, userID int64, amount int64) error
+	DeductBalance(ctx context.Context, userID int64, amount int64) (deducted int64, err error)
 }
 
 type Subscriptions interface {
@@ -46,10 +49,8 @@ type Payments interface {
 type Referrals interface {
 	// CreateReferral записывает реферала — INSERT OR IGNORE (идемпотентно).
 	CreateReferral(ctx context.Context, r *models.Referral) error
-	// GetUnrewardedByReferee возвращает невознаграждённую запись для данного реферала.
-	GetUnrewardedByReferee(ctx context.Context, refereeID int64) (*models.Referral, error)
-	// MarkReferralRewarded проставляет rewarded_at = now().
-	MarkReferralRewarded(ctx context.Context, referralID int64) error
+	// GetReferrerByReferee возвращает referrer_id для данного реферала (или ErrNotFound).
+	GetReferrerByReferee(ctx context.Context, refereeID int64) (int64, error)
 	GetReferralCount(ctx context.Context, referrerID int64) (int, error)
 }
 

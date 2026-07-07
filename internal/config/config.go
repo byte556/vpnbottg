@@ -51,7 +51,7 @@ type Bot struct {
 	Token              string      `yaml:"token"`
 	AdminID            int64       `yaml:"admin_id"`
 	Support            string      `yaml:"support"`
-	ReferralRewardDays int         `yaml:"referral_reward_days"`
+	ReferralRewardPct  int         `yaml:"referral_reward_pct"`
 	Constructor        Constructor `yaml:"constructor"`
 }
 

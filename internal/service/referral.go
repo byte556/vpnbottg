@@ -12,12 +12,12 @@ import (
 
 type ReferralService struct {
 	refs  repository.Referrals
-	subs  *Subscription
+	users repository.Users
 	audit repository.Audit
 }
 
-func NewReferralService(refs repository.Referrals, subs *Subscription, audit repository.Audit) *ReferralService {
-	return &ReferralService{refs: refs, subs: subs, audit: audit}
+func NewReferralService(refs repository.Referrals, users repository.Users, audit repository.Audit) *ReferralService {
+	return &ReferralService{refs: refs, users: users, audit: audit}
 }
 
 // Record записывает реферала при первом /start с ref-ссылкой.
@@ -43,39 +43,36 @@ func (s *ReferralService) GetCount(ctx context.Context, userID int64) int {
 	return count
 }
 
-// Reward проверяет наличие невознаграждённого реферала для refereeID,
-// продлевает подписку реферрера и помечает реферал как вознаграждённый.
-// Возвращает (referrerID, nil) при успехе, (0, nil) если нечего вознаграждать,
-// (0, err) при ошибке.
-func (s *ReferralService) Reward(ctx context.Context, refereeID int64) (int64, error) {
-	log := logger.L().With().Int64("referee_id", refereeID).Logger()
+// RewardBalance начисляет referrer-у процент от оплаты реферала на баланс.
+// Возвращает (referrerID, rewardRub, nil) при успехе, (0, 0, nil) если нет реферала.
+func (s *ReferralService) RewardBalance(ctx context.Context, refereeID, paymentRub int64) (int64, int64, error) {
+	log := logger.L().With().Int64("referee_id", refereeID).Int64("payment_rub", paymentRub).Logger()
 
-	ref, err := s.refs.GetUnrewardedByReferee(ctx, refereeID)
+	referrerID, err := s.refs.GetReferrerByReferee(ctx, refereeID)
 	if errors.Is(err, repository.ErrNotFound) {
-		return 0, nil // нет реферала — не ошибка
+		return 0, 0, nil
 	}
 	if err != nil {
-		return 0, fmt.Errorf("referral reward: %w", err)
+		return 0, 0, fmt.Errorf("referral reward: %w", err)
 	}
 
-	days := config.Cfg.Bot.ReferralRewardDays
-	if days <= 0 {
-		days = 7
+	pct := config.Cfg.Bot.ReferralRewardPct
+	if pct <= 0 {
+		pct = 50
+	}
+	rewardRub := paymentRub * int64(pct) / 100
+	if rewardRub <= 0 {
+		return 0, 0, nil
 	}
 
-	if err := s.subs.ExtendExpiry(ctx, ref.ReferrerID, days); err != nil {
-		log.Error().Err(err).Int64("referrer_id", ref.ReferrerID).Msg("referral reward: ExtendExpiry failed")
-		return 0, fmt.Errorf("referral reward extend: %w", err)
+	if err := s.users.AddBalance(ctx, referrerID, rewardRub); err != nil {
+		log.Error().Err(err).Int64("referrer_id", referrerID).Msg("referral reward: AddBalance failed")
+		return 0, 0, fmt.Errorf("referral reward balance: %w", err)
 	}
 
-	if err := s.refs.MarkReferralRewarded(ctx, ref.ID); err != nil {
-		log.Error().Err(err).Msg("referral reward: MarkRewarded failed")
-		return 0, fmt.Errorf("referral reward mark: %w", err)
-	}
+	_ = s.audit.Log(ctx, &referrerID, "referral_balance",
+		fmt.Sprintf(`{"referee_id":%d,"payment_rub":%d,"reward_rub":%d}`, refereeID, paymentRub, rewardRub))
 
-	_ = s.audit.Log(ctx, &ref.ReferrerID, "referral_rewarded",
-		fmt.Sprintf(`{"referee_id":%d,"days":%d}`, refereeID, days))
-
-	log.Info().Int64("referrer_id", ref.ReferrerID).Int("days", days).Msg("referral: rewarded")
-	return ref.ReferrerID, nil
+	log.Info().Int64("referrer_id", referrerID).Int64("reward_rub", rewardRub).Msg("referral: balance rewarded")
+	return referrerID, rewardRub, nil
 }

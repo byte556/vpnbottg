@@ -20,29 +20,17 @@ func (d *DB) CreateReferral(ctx context.Context, r *models.Referral) error {
 	return nil
 }
 
-func (d *DB) GetUnrewardedByReferee(ctx context.Context, refereeID int64) (*models.Referral, error) {
-	row := d.sql.QueryRowContext(ctx, `
-		SELECT id, referrer_id, referee_id, rewarded_at, created_at
-		FROM referrals
-		WHERE referee_id = ? AND rewarded_at IS NULL
-	`, refereeID)
-
-	var r models.Referral
-	if err := row.Scan(&r.ID, &r.ReferrerID, &r.RefereeID, &r.RewardedAt, &r.CreatedAt); err != nil {
-		if errors.Is(err, sql.ErrNoRows) {
-			return nil, repository.ErrNotFound
-		}
-		return nil, fmt.Errorf("getUnrewardedByReferee: %w", err)
-	}
-	return &r, nil
-}
-
-func (d *DB) MarkReferralRewarded(ctx context.Context, referralID int64) error {
-	_, err := d.sql.ExecContext(ctx, `UPDATE referrals SET rewarded_at = unixepoch() WHERE id = ?`, referralID)
+func (d *DB) GetReferrerByReferee(ctx context.Context, refereeID int64) (int64, error) {
+	var referrerID int64
+	err := d.sql.QueryRowContext(ctx,
+		`SELECT referrer_id FROM referrals WHERE referee_id = ? LIMIT 1`, refereeID).Scan(&referrerID)
 	if err != nil {
-		return fmt.Errorf("markReferralRewarded: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return 0, repository.ErrNotFound
+		}
+		return 0, fmt.Errorf("getReferrerByReferee: %w", err)
 	}
-	return nil
+	return referrerID, nil
 }
 
 func (d *DB) GetReferralCount(ctx context.Context, referrerID int64) (int, error) {

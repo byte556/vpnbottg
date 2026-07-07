@@ -17,7 +17,7 @@ func Help(c tele.Context) error {
 	}), keyboard.HelpKeyboard(), &tele.SendOptions{ParseMode: tele.ModeHTML})
 }
 
-func Invite(botUsername string, refSvc *service.ReferralService) tele.HandlerFunc {
+func Invite(botUsername string, refSvc *service.ReferralService, userSvc *service.User) tele.HandlerFunc {
 	return func(c tele.Context) error {
 		ctx := context.Background()
 		link := fmt.Sprintf("https://t.me/%s?start=ref_%d", botUsername, c.Sender().ID)
@@ -25,14 +25,20 @@ func Invite(botUsername string, refSvc *service.ReferralService) tele.HandlerFun
 		if refSvc != nil {
 			count = refSvc.GetCount(ctx, c.Sender().ID)
 		}
-		rewardDays := config.Cfg.Bot.ReferralRewardDays
-		if rewardDays <= 0 {
-			rewardDays = 7
+		var balance int64
+		if userSvc != nil {
+			balance, _ = userSvc.GetBalance(ctx, c.Sender().ID)
+		}
+		rewardPct := config.Cfg.Bot.ReferralRewardPct
+		if rewardPct <= 0 {
+			rewardPct = 50
 		}
 		return screen(c, "invite", texts.T("invite.text", map[string]any{
-			"Link":       link,
-			"Count":      count,
-			"RewardDays": rewardDays,
+			"Link":      link,
+			"Count":     count,
+			"RewardPct": rewardPct,
+			"Balance":   balance,
+			"Support":   config.Cfg.Bot.Support,
 		}), keyboard.InviteKeyboard(), &tele.SendOptions{ParseMode: tele.ModeHTML})
 	}
 }

@@ -17,6 +17,7 @@ import (
 	"vpnbottg/internal/subserver"
 	"vpnbottg/internal/telegram"
 	"vpnbottg/internal/telegram/assets"
+	"vpnbottg/internal/telegram/handlers"
 	"vpnbottg/internal/telegram/texts"
 
 	tele "gopkg.in/telebot.v3"
@@ -58,7 +59,7 @@ func main() {
 		config.Cfg.XUI.InboundsDirect,
 		config.Cfg.XUI.SubURLTemplate,
 	)
-	refSvc := service.NewReferralService(db, subSvc, db)
+	refSvc := service.NewReferralService(db, db, db)
 	adminSvc := service.NewAdminService(db, db, db, db, xuiClient, ykClient, db)
 	promoSvc := service.NewPromoService(db, subSvc, db)
 
@@ -152,6 +153,7 @@ func main() {
 	}
 
 	// Бот в горутине — останавливается через bot.Stop().
+	handlers.Init(userSvc)
 	go telegram.Run(bot, paym, subSvc, userSvc, refSvc, db, adminSvc, promoSvc)
 
 	// Ждём SIGTERM или SIGINT.

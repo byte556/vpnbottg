@@ -167,7 +167,12 @@ func Constructor(s *session.ConstructorState, finalPrice int) *tele.ReplyMarkup 
 	}
 
 	devLabel := fmt.Sprintf("%d устр.", s.GetDevices())
-	buyLabel := texts.T("constructor.buttons.buy", map[string]any{"Price": finalPrice})
+	var buyLabel string
+	if finalPrice <= 0 {
+		buyLabel = "✅ Оплатить бонусами"
+	} else {
+		buyLabel = texts.T("constructor.buttons.buy", map[string]any{"Price": finalPrice})
+	}
 
 	m.Inline(
 		m.Row(

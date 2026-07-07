@@ -271,14 +271,31 @@ func (h *WebhookHandler) process(ctx context.Context, ykPayment *yookassa.Paymen
 	h.sendSubscriberMenu(ctx, tgID)
 	log.Info().Str("sub_url", subURL).Msg("process: ok")
 
-	h.rewardReferrer(ctx, tgID, log)
+	// Списываем баланс (если покупатель использовал бонусы).
+	if balStr := meta["balance_used"]; balStr != "" {
+		if bal, _ := strconv.ParseInt(balStr, 10, 64); bal > 0 {
+			if deducted, err := h.user.DeductBalance(ctx, tgID, bal); err != nil {
+				log.Error().Err(err).Int64("balance_used", bal).Msg("process: DeductBalance failed")
+			} else {
+				log.Info().Int64("deducted", deducted).Msg("process: balance deducted")
+			}
+		}
+	}
+
+	// Реферальный кешбэк — только от реальной оплаты (не от баланса).
+	dbPayment, err := h.payment.GetPaymentByProviderID(ctx, ykPayment.ID)
+	if err != nil {
+		log.Error().Err(err).Msg("process: GetPaymentByProviderID for referral failed")
+	} else {
+		h.rewardReferrer(ctx, tgID, dbPayment.Amount, log)
+	}
 }
 
-func (h *WebhookHandler) rewardReferrer(ctx context.Context, refereeID int64, log zerolog.Logger) {
+func (h *WebhookHandler) rewardReferrer(ctx context.Context, refereeID, paymentRub int64, log zerolog.Logger) {
 	if h.ref == nil {
 		return
 	}
-	referrerID, err := h.ref.Reward(ctx, refereeID)
+	referrerID, rewardRub, err := h.ref.RewardBalance(ctx, refereeID, paymentRub)
 	if err != nil {
 		log.Error().Err(err).Msg("rewardReferrer: failed")
 		return
@@ -295,9 +312,8 @@ func (h *WebhookHandler) rewardReferrer(ctx context.Context, refereeID int64, lo
 			name = refUser.FirstName
 		}
 	}
-	days := config.Cfg.Bot.ReferralRewardDays
-	h.send(referrerID, texts.T("referral.reward", map[string]any{"Name": name, "Days": days}))
-	log.Info().Int64("referrer_id", referrerID).Int("days", days).Msg("rewardReferrer: notified")
+	h.sendHTML(referrerID, texts.T("referral.reward", map[string]any{"Name": name, "Amount": rewardRub}))
+	log.Info().Int64("referrer_id", referrerID).Int64("reward_rub", rewardRub).Msg("rewardReferrer: notified")
 }
 
 func (h *WebhookHandler) send(userID int64, text string) {

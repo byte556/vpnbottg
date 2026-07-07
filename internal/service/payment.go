@@ -31,6 +31,10 @@ func (s *PaymentService) HasEverPaid(ctx context.Context, userID int64) (bool, e
 func (s *PaymentService) GetLastSucceededPayment(ctx context.Context, userID int64) (*models.Payment, error) {
 	return s.payments.GetLastSucceededPayment(ctx, userID)
 }
+
+func (s *PaymentService) GetPaymentByProviderID(ctx context.Context, providerPaymentID string) (*models.Payment, error) {
+	return s.payments.GetPaymentByProviderID(ctx, providerPaymentID)
+}
 func (s *PaymentService) InitiatePayment(
 	userID int64,
 	req yookassa.CreatePaymentReq,

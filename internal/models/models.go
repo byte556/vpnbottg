@@ -5,6 +5,7 @@ type User struct {
 	Username   string `repository:"username"`
 	FirstName  string `repository:"first_name"`
 	ReferredBy *int64 `repository:"referred_by"`
+	BalanceRub int64  `repository:"balance_rub"`
 	CreatedAt  int64  `repository:"created_at"`
 }
 

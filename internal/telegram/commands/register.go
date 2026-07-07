@@ -23,7 +23,7 @@ func Register(bot *tele.Bot, subSvc *service.Subscription, refSvc *service.Refer
 	menuHandler := func(c tele.Context) error {
 		return handlers.Menu(c, subSvc)
 	}
-	inviteHandler := handlers.Invite(bot.Me.Username, refSvc)
+	inviteHandler := handlers.Invite(bot.Me.Username, refSvc, user)
 
 	bot.Handle("/start", func(c tele.Context) error {
 		ctx := context.Background()

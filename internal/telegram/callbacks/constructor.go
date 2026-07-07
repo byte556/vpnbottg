@@ -40,9 +40,10 @@ func Month(months int) tele.HandlerFunc {
 	}
 }
 
-func Buy(paymentServ *service.PaymentService, userSvc *service.User) tele.HandlerFunc {
+func Buy(paymentServ *service.PaymentService, userSvc *service.User, sub *service.Subscription, promo *service.PromoService) tele.HandlerFunc {
 	return func(c tele.Context) error {
 		log := logger.L().With().Str("func", "Buy").Int64("user_id", c.Sender().ID).Logger()
+		ctx := context.Background()
 
 		sess := session.GetStore().Get(c.Sender().ID)
 		if sess.PaymentID != "" {
@@ -50,29 +51,68 @@ func Buy(paymentServ *service.PaymentService, userSvc *service.User) tele.Handle
 			return handlers.PaymentPending(c)
 		}
 
-		if err := userSvc.EnsureUser(context.Background(), c.Sender().ID, c.Sender().Username, c.Sender().FirstName, nil); err != nil {
+		if err := userSvc.EnsureUser(ctx, c.Sender().ID, c.Sender().Username, c.Sender().FirstName, nil); err != nil {
 			log.Error().Err(err).Msg("Buy: EnsureUser failed")
 			return handlers.PaymentError(c)
 		}
 
 		price := sess.ApplyDiscount(sess.Constructor.CalcPrice())
+
+		balance, _ := userSvc.GetBalance(ctx, c.Sender().ID)
+		balanceUsed := balance
+		if balanceUsed > int64(price) {
+			balanceUsed = int64(price)
+		}
+		toPay := int64(price) - balanceUsed
+
 		description := fmt.Sprintf(
 			"VPN %d подкл. / %d мес",
 			sess.Constructor.GetDevices(),
 			sess.Constructor.GetMonths(),
 		)
-		log.Info().Int("price", price).Int("promo_pct", sess.PromoDiscountPct).Str("desc", description).Msg("Buy: initiating payment")
+		log.Info().Int("price", price).Int64("balance", balance).Int64("balance_used", balanceUsed).Int64("to_pay", toPay).Msg("Buy: calculated")
+
+		// Полностью покрыто балансом — выдаём без YooKassa.
+		if toPay <= 0 {
+			log.Info().Msg("Buy: fully covered by balance")
+			if _, err := userSvc.DeductBalance(ctx, c.Sender().ID, balanceUsed); err != nil {
+				log.Error().Err(err).Msg("Buy: DeductBalance failed")
+				return handlers.PaymentError(c)
+			}
+
+			if promo != nil && sess.PromoCode != "" {
+				if err := promo.ConsumeDiscount(ctx, c.Sender().ID, sess.PromoCode); err != nil {
+					log.Error().Err(err).Msg("Buy: ConsumeDiscount failed")
+				}
+				clearSessionPromo(c.Sender().ID)
+			}
+
+			_ = handlers.PaymentProcessing(c)
+
+			meta := map[string]string{
+				"tg_id":   fmt.Sprintf("%d", c.Sender().ID),
+				"devices": fmt.Sprintf("%d", sess.Constructor.GetDevices()),
+				"months":  fmt.Sprintf("%d", sess.Constructor.GetMonths()),
+			}
+			return provision(c, ctx, meta, sub)
+		}
+
+		// Частичная или нулевая скидка балансом — создаём YK-платёж на остаток.
+		metadata := map[string]string{
+			"tg_id":      fmt.Sprintf("%d", c.Sender().ID),
+			"devices":    fmt.Sprintf("%d", sess.Constructor.GetDevices()),
+			"months":     fmt.Sprintf("%d", sess.Constructor.GetMonths()),
+			"promo_code": sess.PromoCode,
+		}
+		if balanceUsed > 0 {
+			metadata["balance_used"] = strconv.FormatInt(balanceUsed, 10)
+		}
 
 		ykPayment, _, err := paymentServ.InitiatePayment(c.Sender().ID, yookassa.CreatePaymentReq{
-			AmountRub:   price,
+			AmountRub:   int(toPay),
 			Description: description,
 			SaveMethod:  true,
-			Metadata: map[string]string{
-				"tg_id":      fmt.Sprintf("%d", c.Sender().ID),
-				"devices":    fmt.Sprintf("%d", sess.Constructor.GetDevices()),
-				"months":     fmt.Sprintf("%d", sess.Constructor.GetMonths()),
-				"promo_code": sess.PromoCode,
-			},
+			Metadata:    metadata,
 		})
 		if err != nil {
 			log.Error().Err(err).Msg("Buy: InitiatePayment failed")
@@ -82,7 +122,7 @@ func Buy(paymentServ *service.PaymentService, userSvc *service.User) tele.Handle
 		sess.PaymentID = ykPayment.ID
 		sess.PaymentURL = ykPayment.ConfirmationURL
 		session.GetStore().Save(c.Sender().ID, sess)
-		log.Info().Str("yk_id", ykPayment.ID).Msg("Buy: payment created")
+		log.Info().Str("yk_id", ykPayment.ID).Int64("to_pay", toPay).Msg("Buy: payment created")
 
 		return handlers.PaymentPending(c)
 	}
@@ -98,7 +138,6 @@ func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *s
 		payment, err := yk.GetYkClient().FetchPayment(paymentID)
 		if err != nil {
 			log.Error().Err(err).Str("payment_id", paymentID).Msg("CheckPayment: FetchPayment failed")
-			// popup: кнопка перестаёт крутиться + показывает текст
 			return c.Respond(&tele.CallbackResponse{Text: texts.T("check_payment.error_fetch")})
 		}
 		if payment.Status != "succeeded" {
@@ -106,20 +145,29 @@ func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *s
 			return c.Respond(&tele.CallbackResponse{Text: texts.T("check_payment.not_found")})
 		}
 
-		// Оплата подтверждена — сразу отвечаем на callback (убираем спиннер),
-		// затем заменяем сообщение с кнопкой на статус "обрабатываем".
 		_ = c.Respond(&tele.CallbackResponse{})
 		_ = handlers.PaymentProcessing(c)
 
 		ctx := context.Background()
 
-		// Списываем промо-скидку (если была) — идемпотентно, безопасно при повторной проверке.
+		// Списываем промо-скидку (если была).
 		if promo != nil {
 			if code := payment.Metadata["promo_code"]; code != "" {
 				if err := promo.ConsumeDiscount(ctx, c.Sender().ID, code); err != nil {
 					log.Error().Err(err).Str("code", code).Msg("CheckPayment: ConsumeDiscount failed")
 				}
 				clearSessionPromo(c.Sender().ID)
+			}
+		}
+
+		// Списываем баланс (если покупатель использовал бонусы).
+		if balStr := payment.Metadata["balance_used"]; balStr != "" {
+			if bal, _ := strconv.ParseInt(balStr, 10, 64); bal > 0 {
+				if deducted, err := user.DeductBalance(ctx, c.Sender().ID, bal); err != nil {
+					log.Error().Err(err).Int64("balance_used", bal).Msg("CheckPayment: DeductBalance failed")
+				} else {
+					log.Info().Int64("deducted", deducted).Msg("CheckPayment: balance deducted")
+				}
 			}
 		}
 
@@ -133,7 +181,6 @@ func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *s
 			if _, subErr := sub.GetActive(ctx, c.Sender().ID); subErr == nil {
 				return handlers.AlreadyProvisioned(c, sub)
 			}
-			// Payment confirmed but subscription never created — retry provision
 			log.Info().Msg("CheckPayment: orphaned payment — retrying provision")
 			_ = handlers.PaymentProcessing(c)
 			return provision(c, ctx, payment.Metadata, sub)
@@ -168,7 +215,6 @@ func provision(c tele.Context, ctx context.Context, meta map[string]string, sub 
 		devices = 1
 	}
 
-	// Пробный период и любые случаи с явным числом дней (не months*30).
 	if daysStr := meta["days"]; daysStr != "" {
 		days, _ := strconv.Atoi(daysStr)
 		if days <= 0 {

@@ -15,7 +15,7 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 	bot.Handle(&tele.Btn{Unique: keyboard.NavBuy}, handlers.Constructor)
 	bot.Handle(&tele.Btn{Unique: keyboard.NavTrial}, handlers.TrialStart(payment, sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.NavHelp}, handlers.Help)
-	bot.Handle(&tele.Btn{Unique: keyboard.NavInvite}, handlers.Invite(bot.Me.Username, ref))
+	bot.Handle(&tele.Btn{Unique: keyboard.NavInvite}, handlers.Invite(bot.Me.Username, ref, user))
 	bot.Handle(&tele.Btn{Unique: keyboard.NavConfig}, handlers.MyConfig(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.NavDevices}, handlers.Devices(sub))
 	bot.Handle(&tele.Btn{Unique: keyboard.NavSettings}, handlers.Settings(sub))
@@ -34,7 +34,7 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 
 	bot.Handle(&tele.Btn{Unique: keyboard.TrialBuy}, TrialBuy(payment, user))
 
-	bot.Handle(&tele.Btn{Unique: keyboard.Buy}, Buy(payment, user))
+	bot.Handle(&tele.Btn{Unique: keyboard.Buy}, Buy(payment, user, sub, promo))
 	bot.Handle(&tele.Btn{Unique: keyboard.CheckPayment}, CheckPayment(payment, sub, user, promo))
 
 	bot.Handle(&tele.Btn{Unique: keyboard.AddonDevDec}, AddonDevDec(sub))
