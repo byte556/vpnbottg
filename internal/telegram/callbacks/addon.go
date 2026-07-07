@@ -21,11 +21,18 @@ func AddonSuccess(c tele.Context, amount int, subSvc *service.Subscription) erro
 
 func BackToMenu(subSvc *service.Subscription) tele.HandlerFunc {
 	return func(c tele.Context) error {
-		// Сбрасываем ожидание ввода промокода, если пользователь передумал.
 		sess := session.GetStore().Get(c.Sender().ID)
+		// Сбрасываем ожидание ввода промокода, если пользователь передумал.
 		if sess.AwaitPromo {
 			sess.AwaitPromo = false
 			session.GetStore().Save(c.Sender().ID, sess)
+		}
+		// Из конструктора управления тарифом «Назад» ведёт на экран «Мой тариф»,
+		// а не в главное меню — отдельный статус-экран.
+		if sess.Constructor.IsManage() {
+			sess.Constructor.ResetManage()
+			session.GetStore().Save(c.Sender().ID, sess)
+			return handlers.SendSettings(c, subSvc)
 		}
 		return handlers.Menu(c, subSvc)
 	}

@@ -22,6 +22,8 @@ var (
 	Buy          = "buy"
 	CheckPayment = "check_payment"
 
+	RenewOpen = "renew_open"
+
 	DeleteDevice = "delete_device"
 
 	TrialBuy = "trial_buy"
@@ -199,6 +201,16 @@ func Constructor(s *session.ConstructorState, finalPrice int) *tele.ReplyMarkup 
 	)
 	m.Inline(rows...)
 
+	return m
+}
+
+// SettingsKeyboard — экран-статус «Мой тариф»: продлить/изменить тариф и назад.
+func SettingsKeyboard() *tele.ReplyMarkup {
+	m := &tele.ReplyMarkup{}
+	m.Inline(
+		m.Row(m.Data("🔄 Продлить / изменить тариф", RenewOpen)),
+		m.Row(m.Data(texts.T("buttons.back"), Back)),
+	)
 	return m
 }
 

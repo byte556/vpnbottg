@@ -35,6 +35,8 @@ func Register(bot *tele.Bot, payment *service.PaymentService, sub *service.Subsc
 
 	bot.Handle(&tele.Btn{Unique: keyboard.TrialBuy}, TrialBuy(payment, user))
 
+	bot.Handle(&tele.Btn{Unique: keyboard.RenewOpen}, handlers.OpenRenew(sub))
+
 	bot.Handle(&tele.Btn{Unique: keyboard.Buy}, Buy(payment, user, sub, promo))
 	bot.Handle(&tele.Btn{Unique: keyboard.CheckPayment}, CheckPayment(payment, sub, user, promo, ref))
 
