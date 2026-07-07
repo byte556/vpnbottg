@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/mattn/go-sqlite3"
+	_ "modernc.org/sqlite"
 )
 
 //go:embed *.sql
@@ -16,7 +16,7 @@ var migrationFS embed.FS
 // Connect — открыть SQLite и применить миграции.
 func Connect(path string) (*sqlx.DB, error) {
 	dsn := "file:" + path + "?_journal_mode=WAL&_busy_timeout=5000&_foreign_keys=on"
-	db, err := sqlx.Connect("sqlite3", dsn)
+	db, err := sqlx.Connect("sqlite", dsn)
 	if err != nil {
 		return nil, fmt.Errorf("open sqlite: %w", err)
 	}
