@@ -23,8 +23,8 @@ xui:
   path: ""
   token: "YOUR_XUI_TOKEN"
   inbound_ids_direct: [1]
-  # ссылка, которую бот отправляет пользователю — ведёт на страницу подписки sub-сервера
-  sub_url_template: "https://vpn.example.com:8081/p/%s"
+  # ссылка, которую бот отправляет пользователю — ведёт на /sub/ (браузер → HTML-страница, Happ → конфиг)
+  sub_url_template: "https://vpn.example.com:8081/sub/%s"
 
 sub_server:
   port: 8081                                                       # 0 = выключить sub-сервер

@@ -1,12 +1,9 @@
 // Package subserver — отдельный HTTP-сервер выдачи подписок.
 //
 //	GET /              — корневой лендинг VEXA VPN с кнопкой «Открыть в Telegram».
-//	GET /sub/{sub_id} — сырой конфиг для VPN-клиента (happ). Проксирует подписку
-//	  из панели 3X-UI. Устройство идентифицируется по HWID (x-hwid от Happ) и
-//	  фиксируется в device_connections. Если HWID не прислан или новое устройство
-//	  превышает device_limit — конфиг не отдаётся (403). device_id хранит HWID.
-//	GET /p/{sub_id} — фирменная страница подписки для пользователя:
-//	  QR-код, кнопка «Подключить в Happ» и сама ссылка.
+//	GET /sub/{sub_id}  — единый endpoint: VPN-клиент (Happ и т.п.) получает сырой конфиг,
+//	  браузер — фирменную HTML-страницу подписки с QR и кнопками.
+//	GET /p/{sub_id}    — алиас: всегда отдаёт HTML-страницу (обратная совместимость).
 package subserver
 
 import (
@@ -68,9 +65,28 @@ func New(upstreamTemplate, publicBaseURL, botURL, support string, repo DeviceAut
 func (s *Server) Handler() http.Handler {
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", s.handleLanding)
-	mux.HandleFunc("GET /sub/{sub_id}", s.handleSub)
+	mux.HandleFunc("GET /sub/{sub_id}", s.handleUnified)
 	mux.HandleFunc("GET /p/{sub_id}", s.handlePage)
 	return mux
+}
+
+// handleUnified — единый endpoint: Happ получает конфиг, браузер — HTML-страницу.
+func (s *Server) handleUnified(w http.ResponseWriter, r *http.Request) {
+	if isVPNClient(r.UserAgent()) {
+		s.handleSub(w, r)
+		return
+	}
+	s.handlePage(w, r)
+}
+
+func isVPNClient(ua string) bool {
+	ua = strings.ToLower(ua)
+	for _, sig := range []string{"happ", "v2ray", "clash", "sing-box", "stash", "shadowrocket", "quantumult", "surge", "loon"} {
+		if strings.Contains(ua, sig) {
+			return true
+		}
+	}
+	return false
 }
 
 // subURL собирает внешнюю ссылку на сырой конфиг (её забирает VPN-клиент).

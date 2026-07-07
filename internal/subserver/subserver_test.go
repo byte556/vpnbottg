@@ -250,3 +250,54 @@ func (f *fakeDeviceRepo) AuthorizeDeviceConnection(ctx context.Context, subID, d
 	f.platform = platform
 	return f.allowed, f.isNew, f.err
 }
+
+// Unified endpoint: Happ UA → конфиг (text/plain), браузерный UA → HTML-страница.
+func TestUnifiedEndpointHappGetsConfig(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("config-body"))
+	}))
+	defer upstream.Close()
+
+	repo := &fakeDeviceRepo{allowed: true, isNew: true}
+	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", repo)
+
+	req := httptest.NewRequest("GET", "/sub/abc123", nil)
+	req.SetPathValue("sub_id", "abc123")
+	req.Header.Set("User-Agent", "Happ/1.0 (iPhone; iOS 17)")
+	req.Header.Set("x-hwid", "HWID-UNI")
+	rec := httptest.NewRecorder()
+
+	s.handleUnified(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if rec.Body.String() != "config-body" {
+		t.Fatalf("body = %q, want config-body", rec.Body.String())
+	}
+}
+
+func TestUnifiedEndpointBrowserGetsPage(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Subscription-Userinfo",
+			"upload=0; download=0; total=0; expire=4102444800")
+		_, _ = w.Write([]byte("config-body"))
+	}))
+	defer upstream.Close()
+
+	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", nil)
+
+	req := httptest.NewRequest("GET", "/sub/abc123", nil)
+	req.SetPathValue("sub_id", "abc123")
+	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64)")
+	rec := httptest.NewRecorder()
+
+	s.handleUnified(rec, req)
+
+	if rec.Code != 200 {
+		t.Fatalf("status = %d, want 200", rec.Code)
+	}
+	if !strings.Contains(rec.Body.String(), "happ://add/") {
+		t.Fatal("browser should get HTML page with happ deep link")
+	}
+}
