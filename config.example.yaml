@@ -25,11 +25,6 @@ remnawave:
   token: "YOUR_REMNAWAVE_API_TOKEN"        # API-токен из раздела панели «API Tokens»
   squad_uuids:                             # UUID internal squad'ов для новых юзеров (аналог inbound-id)
     - "00000000-0000-0000-0000-000000000000"
-  # ссылка, которую бот отправляет пользователю — ведёт на /sub/ (браузер → HTML-страница, Happ → конфиг)
-  sub_url_template: "https://vpn.example.com:8081/sub/%s"
-
-sub_server:
-  port: 8081                                                       # 0 = выключить sub-сервер
-  public_base_url: "https://vpn.example.com:8081"                  # внешний адрес sub-сервера
-  upstream_template: "https://panel.example.com/api/sub/%s"        # откуда забирать конфиг из панели (Remnawave sub-эндпоинт)
-  bot_url: "https://t.me/your_bot"                                 # ссылка на бота для лендинга на "/" (пусто = кнопка скрыта)
+  # ссылка, которую бот отправляет пользователю — ведёт на официальную Remnawave
+  # subscription-page (браузер → HTML-страница, VPN-клиент → конфиг). Проксируется Caddy.
+  sub_url_template: "https://sub.example.com/sub/%s"

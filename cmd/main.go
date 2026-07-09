@@ -14,7 +14,6 @@ import (
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/repository/sqlite"
 	"vpnbottg/internal/service"
-	"vpnbottg/internal/subserver"
 	"vpnbottg/internal/telegram"
 	"vpnbottg/internal/telegram/assets"
 	"vpnbottg/internal/telegram/handlers"
@@ -106,30 +105,6 @@ func main() {
 		}
 	}()
 
-	// Sub-сервер выдачи конфигов happ-клиенту — отдельный порт, опционален.
-	// Лимит устройств теперь обеспечивает панель Remnawave (нативный HWID-учёт);
-	// sub-сервер лишь прокидывает заголовки устройства наверх.
-	var subSrv *http.Server
-	if config.Cfg.SubServer.Port != 0 && config.Cfg.SubServer.UpstreamTemplate != "" {
-		ss := subserver.New(
-			config.Cfg.SubServer.UpstreamTemplate,
-			config.Cfg.SubServer.PublicBaseURL,
-			config.Cfg.SubServer.BotURL,
-			config.Cfg.Bot.Support,
-		)
-
-		subSrv = &http.Server{
-			Addr:    fmt.Sprintf(":%d", config.Cfg.SubServer.Port),
-			Handler: ss.Handler(),
-		}
-		go func() {
-			log.Info().Str("addr", subSrv.Addr).Msg("sub server listening")
-			if err := subSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				log.Error().Err(err).Msg("sub server error")
-			}
-		}()
-	}
-
 	// Бот в горутине — останавливается через bot.Stop().
 	handlers.Init(userSvc)
 	go telegram.Run(bot, paym, subSvc, userSvc, refSvc, db, adminSvc, promoSvc)
@@ -148,11 +123,6 @@ func main() {
 	defer shutCancel()
 	if err := srv.Shutdown(shutCtx); err != nil {
 		log.Error().Err(err).Msg("shutdown: http server drain failed")
-	}
-	if subSrv != nil {
-		if err := subSrv.Shutdown(shutCtx); err != nil {
-			log.Error().Err(err).Msg("shutdown: sub server drain failed")
-		}
 	}
 
 	log.Info().Msg("shutdown: ok")

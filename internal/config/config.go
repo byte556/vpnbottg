@@ -55,19 +55,14 @@ type Bot struct {
 	Constructor        Constructor `yaml:"constructor"`
 }
 
-// SubServer — отдельный HTTP-сервер выдачи конфигов happ-клиенту.
-type SubServer struct {
-	Port             int    `yaml:"port"`              // порт sub-сервера (0 = выключен)
-	PublicBaseURL    string `yaml:"public_base_url"`   // внешний адрес сервера, напр. "https://vpn.example.com:8081"
-	UpstreamTemplate string `yaml:"upstream_template"` // fmt-шаблон URL подписки в панели, напр. "https://panel/sub/%s"
-	BotURL           string `yaml:"bot_url"`           // ссылка на Telegram-бота для лендинга на "/" (пусто = кнопка скрыта)
-}
+// SubServer removed: раздача подписок вынесена на официальную Remnawave
+// subscription-page (проксируется через Caddy). Бот больше не поднимает
+// собственный HTTP-сервер выдачи конфигов/лендинга.
 
 type Config struct {
 	Bot       Bot       `yaml:"bot"`
 	YooKassa  YooKassa  `yaml:"yookassa"`
 	Remnawave Remnawave `yaml:"remnawave"`
-	SubServer SubServer `yaml:"sub_server"`
 }
 
 var Cfg Config
