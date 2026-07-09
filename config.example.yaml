@@ -20,16 +20,16 @@ yookassa:
   webhook_url: "https://yourdomain.com/webhook/yookassa"
   webhook_port: 8080
 
-xui:
-  host: "https://your-panel.example.com:54321"
-  path: ""
-  token: "YOUR_XUI_TOKEN"
-  inbound_ids_direct: [1]
+remnawave:
+  url: "https://panel.example.com"        # базовый URL панели Remnawave
+  token: "YOUR_REMNAWAVE_API_TOKEN"        # API-токен из раздела панели «API Tokens»
+  squad_uuids:                             # UUID internal squad'ов для новых юзеров (аналог inbound-id)
+    - "00000000-0000-0000-0000-000000000000"
   # ссылка, которую бот отправляет пользователю — ведёт на /sub/ (браузер → HTML-страница, Happ → конфиг)
   sub_url_template: "https://vpn.example.com:8081/sub/%s"
 
 sub_server:
   port: 8081                                                       # 0 = выключить sub-сервер
   public_base_url: "https://vpn.example.com:8081"                  # внешний адрес sub-сервера
-  upstream_template: "https://your-panel.example.com:54321/sub/%s" # откуда забирать конфиг из панели
+  upstream_template: "https://panel.example.com/api/sub/%s"        # откуда забирать конфиг из панели (Remnawave sub-эндпоинт)
   bot_url: "https://t.me/your_bot"                                 # ссылка на бота для лендинга на "/" (пусто = кнопка скрыта)

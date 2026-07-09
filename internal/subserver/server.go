@@ -181,6 +181,10 @@ func (s *Server) fetchUpstream(ctx context.Context, subID, ua, accept string) ([
 	if accept != "" {
 		req.Header.Set("Accept", accept)
 	}
+	// Remnawave proxy-check требует эти заголовки (ждёт запрос из-за reverse
+	// proxy по HTTPS). Безвредны для любого upstream'а.
+	req.Header.Set("X-Forwarded-Proto", "https")
+	req.Header.Set("X-Forwarded-For", "127.0.0.1")
 
 	resp, err := s.http.Do(req)
 	if err != nil {

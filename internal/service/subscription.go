@@ -5,7 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"time"
-	"vpnbottg/internal/client/xui"
+	"vpnbottg/internal/client/remnawave"
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/models"
 	"vpnbottg/internal/repository"
@@ -15,8 +15,7 @@ type Subscription struct {
 	subs           repository.Subscriptions
 	devices        repository.DeviceConnections
 	audit          repository.Audit
-	xui            *xui.Client
-	inboundsDirect []int
+	panel          *remnawave.Client
 	subURLTemplate string
 }
 
@@ -24,16 +23,14 @@ func NewSubscriptionService(
 	subs repository.Subscriptions,
 	devices repository.DeviceConnections,
 	audit repository.Audit,
-	xui *xui.Client,
-	inboundsDirect []int,
+	panel *remnawave.Client,
 	subURLTemplate string,
 ) *Subscription {
 	return &Subscription{
 		subs:           subs,
 		devices:        devices,
 		audit:          audit,
-		xui:            xui,
-		inboundsDirect: inboundsDirect,
+		panel:          panel,
 		subURLTemplate: subURLTemplate,
 	}
 }
@@ -45,26 +42,26 @@ func (s *Subscription) Create(ctx context.Context, userID int64, planDays, devic
 	expiresAt := now.AddDate(0, 0, planDays)
 	email := fmt.Sprintf("u%d", userID)
 
-	// Один клиент на direct inbound'ах, безлимит трафика (totalGB=0).
-	// subID не передаём — панель сгенерирует свой.
-	if err := s.xui.AddClient(ctx, email, 0, expiresAt, deviceLimit, s.inboundsDirect, ""); err != nil {
-		log.Error().Err(err).Msg("createSubscription: xui addClient failed")
+	// Один пользователь в Remnawave, безлимит трафика (totalGB=0),
+	// привязка к squad'ам из конфига. shortUuid панель генерирует сама.
+	if err := s.panel.AddClient(ctx, email, 0, expiresAt, deviceLimit); err != nil {
+		log.Error().Err(err).Msg("createSubscription: panel addClient failed")
 		return nil, fmt.Errorf("createSubscription: %w", err)
 	}
 
-	// Получаем subId клиента — он станет subId подписки.
-	directClient, err := s.xui.GetClient(ctx, email)
+	// Получаем subId (shortUuid) клиента — он станет subId подписки.
+	directClient, err := s.panel.GetClient(ctx, email)
 	if err != nil {
-		log.Error().Err(err).Msg("createSubscription: xui getClient failed")
+		log.Error().Err(err).Msg("createSubscription: panel getClient failed")
 		return nil, fmt.Errorf("createSubscription get client: %w", err)
 	}
 
-	// ВАЖНО: клиент мог остаться от прошлой (истёкшей) подписки — выключенным
-	// (reminder делает DisableClient) и со старым сроком: AddClient при
-	// "email already in use" его не трогает. Тогда ссылка подписки отдаёт
-	// 404/пустой конфиг. Принудительно включаем и выставляем новые срок/лимит.
-	if err := s.xui.ResetClient(ctx, email, 0, expiresAt, deviceLimit); err != nil {
-		log.Error().Err(err).Msg("createSubscription: xui resetClient failed")
+	// ВАЖНО: клиент мог остаться от прошлой (истёкшей) подписки — DISABLED
+	// (reminder делает DisableClient) и со старым сроком: AddClient при уже занятом
+	// username его не трогает. Тогда ссылка подписки отдаёт пустой конфиг.
+	// Принудительно включаем и выставляем новые срок/лимит.
+	if err := s.panel.ResetClient(ctx, email, 0, expiresAt, deviceLimit); err != nil {
+		log.Error().Err(err).Msg("createSubscription: panel resetClient failed")
 		return nil, fmt.Errorf("createSubscription reset client: %w", err)
 	}
 
@@ -115,8 +112,8 @@ func (s *Subscription) Renew(ctx context.Context, userID int64, addDays int) err
 	newExpiry := time.Unix(sub.ExpiresAt, 0).AddDate(0, 0, addDays)
 
 	// Безлимит трафика
-	if err := s.xui.UpdateClientByEmail(ctx, sub.XUIEmailDirect, 0, newExpiry); err != nil {
-		log.Error().Err(err).Msg("renew: xui update failed")
+	if err := s.panel.UpdateClientByEmail(ctx, sub.XUIEmailDirect, 0, newExpiry); err != nil {
+		log.Error().Err(err).Msg("renew: panel update failed")
 		return fmt.Errorf("renew: %w", err)
 	}
 
@@ -146,7 +143,7 @@ func (s *Subscription) GetConfigURL(ctx context.Context, userID int64) (string, 
 	if err != nil {
 		return "", fmt.Errorf("getConfigURL: %w", err)
 	}
-	cl, err := s.xui.GetClient(ctx, sub.XUIEmailDirect)
+	cl, err := s.panel.GetClient(ctx, sub.XUIEmailDirect)
 	if err != nil {
 		return "", fmt.Errorf("getConfigURL: %w", err)
 	}
@@ -169,8 +166,8 @@ func (s *Subscription) AddDevice(ctx context.Context, userID int64, addDevices i
 	newDevices := sub.DeviceLimit + addDevices
 
 	// Меняем только лимит подключений (addGB = 0), трафик остаётся прежним.
-	if err := s.xui.AddClientCapacity(ctx, sub.XUIEmailDirect, 0, addDevices); err != nil {
-		return fmt.Errorf("addDevice: xui: %w", err)
+	if err := s.panel.AddClientCapacity(ctx, sub.XUIEmailDirect, 0, addDevices); err != nil {
+		return fmt.Errorf("addDevice: panel: %w", err)
 	}
 	if err := s.subs.UpdateSubscriptionDevices(ctx, sub.ID, newDevices, sub.TrafficGB); err != nil {
 		return fmt.Errorf("addDevice: db: %w", err)
@@ -195,8 +192,8 @@ func (s *Subscription) setDeviceLimit(ctx context.Context, userID int64, sub *mo
 	log := logger.L().With().Int64("user_id", userID).Int("new_limit", newLimit).Int("delta", delta).Logger()
 
 	// Меняем только лимит подключений (addGB = 0); delta может быть отрицательным.
-	if err := s.xui.AddClientCapacity(ctx, sub.XUIEmailDirect, 0, delta); err != nil {
-		return fmt.Errorf("setDeviceLimit: xui: %w", err)
+	if err := s.panel.AddClientCapacity(ctx, sub.XUIEmailDirect, 0, delta); err != nil {
+		return fmt.Errorf("setDeviceLimit: panel: %w", err)
 	}
 	if err := s.subs.UpdateSubscriptionDevices(ctx, sub.ID, newLimit, sub.TrafficGB); err != nil {
 		return fmt.Errorf("setDeviceLimit: db: %w", err)
@@ -286,8 +283,8 @@ func (s *Subscription) ExtendExpiry(ctx context.Context, userID int64, addDays i
 	newExpiry := time.Unix(sub.ExpiresAt, 0).AddDate(0, 0, addDays)
 
 	// Безлимит трафика
-	if err := s.xui.UpdateClientByEmail(ctx, sub.XUIEmailDirect, 0, newExpiry); err != nil {
-		log.Error().Err(err).Msg("extendExpiry: xui failed")
+	if err := s.panel.UpdateClientByEmail(ctx, sub.XUIEmailDirect, 0, newExpiry); err != nil {
+		log.Error().Err(err).Msg("extendExpiry: panel failed")
 		return fmt.Errorf("extendExpiry: %w", err)
 	}
 	if err := s.subs.UpdateSubscriptionExpiry(ctx, sub.ID, newExpiry.Unix()); err != nil {
@@ -306,7 +303,7 @@ func (s *Subscription) GetTrafficUsedGB(ctx context.Context, userID int64) float
 	if err != nil {
 		return 0
 	}
-	t, err := s.xui.GetClientTraffic(ctx, sub.XUIEmailDirect)
+	t, err := s.panel.GetClientTraffic(ctx, sub.XUIEmailDirect)
 	if err != nil {
 		return 0
 	}
@@ -341,13 +338,13 @@ func (s *Subscription) ProvisionFromPaymentDays(
 		return "", fmt.Errorf("provisionFromPaymentDays: getActive after provision failed: %w", err)
 	}
 
-	xuiClient, err := s.xui.GetClient(ctx, sub.XUIEmailDirect)
+	panelClient, err := s.panel.GetClient(ctx, sub.XUIEmailDirect)
 	if err != nil {
 		log.Error().Err(err).Msg("provisionFromPaymentDays: getClient failed")
 		return "", fmt.Errorf("provisionFromPaymentDays: getClient failed: %w", err)
 	}
 
-	subURL := fmt.Sprintf(s.subURLTemplate, xuiClient.SubID)
+	subURL := fmt.Sprintf(s.subURLTemplate, panelClient.SubID)
 	log.Info().Str("sub_url", subURL).Msg("provisionFromPaymentDays: ok")
 	return subURL, nil
 }
@@ -401,13 +398,13 @@ func (s *Subscription) ProvisionFromPayment(
 	}
 
 	email := sub.XUIEmailDirect
-	xuiClient, err := s.xui.GetClient(ctx, email)
+	panelClient, err := s.panel.GetClient(ctx, email)
 	if err != nil {
 		log.Error().Err(err).Msg("provisionFromPayment: getClient failed")
 		return "", fmt.Errorf("provisionFromPayment: getClient failed: %w", err)
 	}
 
-	subURL := fmt.Sprintf(s.subURLTemplate, xuiClient.SubID)
+	subURL := fmt.Sprintf(s.subURLTemplate, panelClient.SubID)
 	log.Info().Str("sub_url", subURL).Msg("provisionFromPayment: ok")
 	return subURL, nil
 }

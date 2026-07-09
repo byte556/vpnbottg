@@ -39,12 +39,12 @@ type YooKassa struct {
 	ValidateIPs bool `yaml:"validate_ips"`
 }
 
-type XUI struct {
-	Host           string `yaml:"host"`
-	Path           string `yaml:"path"`
-	Token          string `yaml:"token"`
-	InboundsDirect []int  `yaml:"inbound_ids_direct"`
-	SubURLTemplate string `yaml:"sub_url_template"`
+// Remnawave — параметры подключения к панели Remnawave (https://docs.rw).
+type Remnawave struct {
+	URL            string   `yaml:"url"`              // базовый URL панели, напр. "https://panel.example.com"
+	Token          string   `yaml:"token"`            // API-токен из раздела панели «API Tokens»
+	SquadUUIDs     []string `yaml:"squad_uuids"`      // UUID internal squad'ов для новых юзеров (аналог inbound-id)
+	SubURLTemplate string   `yaml:"sub_url_template"` // fmt-шаблон ссылки подписки, напр. "https://vpn.example.com:8081/sub/%s"
 }
 
 type Bot struct {
@@ -66,7 +66,7 @@ type SubServer struct {
 type Config struct {
 	Bot       Bot       `yaml:"bot"`
 	YooKassa  YooKassa  `yaml:"yookassa"`
-	XUI       XUI       `yaml:"xui"`
+	Remnawave Remnawave `yaml:"remnawave"`
 	SubServer SubServer `yaml:"sub_server"`
 }
 
@@ -84,6 +84,6 @@ func Load(path string) error {
 	Cfg.Bot.Token = envOr("BOT_TOKEN", Cfg.Bot.Token)
 	Cfg.YooKassa.ShopID = envOr("YK_SHOP_ID", Cfg.YooKassa.ShopID)
 	Cfg.YooKassa.SecretKey = envOr("YK_SECRET_KEY", Cfg.YooKassa.SecretKey)
-	Cfg.XUI.Token = envOr("XUI_TOKEN", Cfg.XUI.Token)
+	Cfg.Remnawave.Token = envOr("REMNAWAVE_TOKEN", Cfg.Remnawave.Token)
 	return nil
 }

@@ -7,7 +7,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
-	"vpnbottg/internal/client/xui"
+	"vpnbottg/internal/client/remnawave"
 	"vpnbottg/internal/client/yookassa"
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/models"
@@ -22,7 +22,7 @@ type AdminService struct {
 	users    repository.Users
 	payments repository.Payments
 	stats    repository.Stats
-	xui      *xui.Client
+	panel    *remnawave.Client
 	yk       *yookassa.Client
 	audit    repository.Audit
 }
@@ -32,19 +32,19 @@ func NewAdminService(
 	users repository.Users,
 	payments repository.Payments,
 	stats repository.Stats,
-	xuiClient *xui.Client,
+	panel *remnawave.Client,
 	ykClient *yookassa.Client,
 	audit repository.Audit,
 ) *AdminService {
 	return &AdminService{
 		purge: purge, users: users,
 		payments: payments, stats: stats,
-		xui: xuiClient, yk: ykClient, audit: audit,
+		panel: panel, yk: ykClient, audit: audit,
 	}
 }
 
 // DeleteUser удаляет пользователя: сначала чистит БД (транзакция),
-// затем удаляет клиентов из 3X-UI (best-effort — ошибки логируются, не прерывают удаление).
+// затем удаляет клиентов из Remnawave (best-effort — ошибки логируются, не прерывают удаление).
 // Возвращает ErrNotFound если пользователь не найден.
 func (s *AdminService) DeleteUser(ctx context.Context, tgID int64) error {
 	log := logger.L().With().Int64("target_user", tgID).Logger()
@@ -62,16 +62,16 @@ func (s *AdminService) DeleteUser(ctx context.Context, tgID int64) error {
 		log.Error().Err(err).Msg("deleteUser: PurgeUserData failed")
 		return fmt.Errorf("deleteUser: db purge: %w", err)
 	}
-	log.Info().Str("direct", direct).Str("relay", relay).Msg("deleteUser: DB purged, deleting from XUI")
+	log.Info().Str("direct", direct).Str("relay", relay).Msg("deleteUser: DB purged, deleting from panel")
 
 	if direct != "" {
-		if err := s.xui.DeleteClient(ctx, direct); err != nil {
-			log.Warn().Err(err).Str("email", direct).Msg("deleteUser: xui DeleteClient direct failed (ignored)")
+		if err := s.panel.DeleteClient(ctx, direct); err != nil {
+			log.Warn().Err(err).Str("email", direct).Msg("deleteUser: panel DeleteClient direct failed (ignored)")
 		}
 	}
 	if relay != "" && relay != direct {
-		if err := s.xui.DeleteClient(ctx, relay); err != nil {
-			log.Warn().Err(err).Str("email", relay).Msg("deleteUser: xui DeleteClient relay failed (ignored)")
+		if err := s.panel.DeleteClient(ctx, relay); err != nil {
+			log.Warn().Err(err).Str("email", relay).Msg("deleteUser: panel DeleteClient relay failed (ignored)")
 		}
 	}
 

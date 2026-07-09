@@ -8,7 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"vpnbottg/internal/client/xui"
+	"vpnbottg/internal/client/remnawave"
 	"vpnbottg/internal/client/yookassa"
 	"vpnbottg/internal/config"
 	"vpnbottg/internal/infra/logger"
@@ -46,21 +46,20 @@ func main() {
 		config.Cfg.YooKassa.WebhookURL,
 	)
 
-	xuiClient := xui.NewClient(
-		config.Cfg.XUI.Host,
-		config.Cfg.XUI.Path,
-		config.Cfg.XUI.Token,
+	panelClient := remnawave.NewClient(
+		config.Cfg.Remnawave.URL,
+		config.Cfg.Remnawave.Token,
+		config.Cfg.Remnawave.SquadUUIDs,
 	)
 
 	userSvc := service.NewUserService(db, db)
 	paym := service.NewPaymentService(db, db, ykClient)
 	subSvc := service.NewSubscriptionService(
-		db, db, db, xuiClient,
-		config.Cfg.XUI.InboundsDirect,
-		config.Cfg.XUI.SubURLTemplate,
+		db, db, db, panelClient,
+		config.Cfg.Remnawave.SubURLTemplate,
 	)
 	refSvc := service.NewReferralService(db, db, db)
-	adminSvc := service.NewAdminService(db, db, db, db, xuiClient, ykClient, db)
+	adminSvc := service.NewAdminService(db, db, db, db, panelClient, ykClient, db)
 	promoSvc := service.NewPromoService(db, subSvc, db)
 
 	bot, err := telegram.NewBot()
@@ -73,7 +72,7 @@ func main() {
 	defer cancel()
 
 	reminderSvc := service.NewReminderService(
-		db, xuiClient,
+		db, panelClient,
 		func(userID int64, card, text string, markup *tele.ReplyMarkup) {
 			to := &tele.User{ID: userID}
 			// SendOptions первым — иначе telebot затирает ReplyMarkup (см. handlers.sendOptsFirst).

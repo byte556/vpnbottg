@@ -3,7 +3,7 @@ package service
 import (
 	"context"
 	"time"
-	"vpnbottg/internal/client/xui"
+	"vpnbottg/internal/client/remnawave"
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/repository"
 	"vpnbottg/internal/telegram/keyboard"
@@ -18,18 +18,18 @@ type Notify func(userID int64, card, text string, markup *tele.ReplyMarkup)
 
 type Reminder struct {
 	subs   repository.Subscriptions
-	xui    *xui.Client
+	panel  *remnawave.Client
 	notify Notify
 }
 
 func NewReminderService(
 	subs repository.Subscriptions,
-	xui *xui.Client,
+	panel *remnawave.Client,
 	notify Notify,
 ) *Reminder {
 	return &Reminder{
 		subs:   subs,
-		xui:    xui,
+		panel:  panel,
 		notify: notify,
 	}
 }
@@ -82,7 +82,7 @@ func (r *Reminder) check(ctx context.Context) {
 	for _, sub := range expired {
 		r.notify(sub.UserID, "expired", texts.T("reminder.expired"), keyboard.RenewKeyboard())
 
-		if err := r.xui.DisableClient(ctx, sub.XUIEmailDirect); err != nil {
+		if err := r.panel.DisableClient(ctx, sub.XUIEmailDirect); err != nil {
 			log.Warn().Err(err).Str("email", sub.XUIEmailDirect).Msg("check: disable failed")
 		}
 
