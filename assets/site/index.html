@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<!--
+  Лендинг VexaVPN — статическая страница, которую Caddy отдаёт на https://vexavpn.online
+  КАК ПРАВИТЬ:
+   • Тексты и ссылки — в теле <body> (ищи «== ПРАВЬ ТУТ ==»).
+   • Цвета — в :root (--brand-1 / --brand-2).
+  После правки файла на сервере (/var/www/vexavpn/index.html) НИЧЕГО перезапускать не надо —
+  Caddy отдаёт файл сразу, просто обнови страницу (Ctrl+F5).
+-->
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>VexaVPN — быстрый VPN без ограничений</title>
+<meta name="description" content="VexaVPN — быстрый и незаметный VPN. Подключение за минуту через Telegram.">
+<link rel="icon" href="/logo.svg" type="image/svg+xml">
+<style>
+  /* ==================== ЦВЕТА / ТОКЕНЫ ==================== */
+  :root{
+    --brand-1:#6366F1; --brand-2:#06B6D4;
+    --bg:#f6f7fb; --card:#ffffff;
+    --text:#0f172a; --muted:#64748b; --line:#e6e8ef;
+    --radius:20px; --shadow:0 10px 40px rgba(15,23,42,.08);
+    --font:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root{ --bg:#0b1020; --card:#121829; --text:#eef1f7; --muted:#98a2b8;
+           --line:#222a3d; --shadow:0 10px 40px rgba(0,0,0,.4); }
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%}
+  body{
+    font-family:var(--font); color:var(--text); background:var(--bg);
+    background-image:
+      radial-gradient(650px 350px at 50% -8%, rgba(99,102,241,.18), transparent 70%),
+      radial-gradient(520px 300px at 88% 8%, rgba(6,182,212,.14), transparent 70%);
+    display:flex; align-items:center; justify-content:center;
+    padding:32px 20px; -webkit-font-smoothing:antialiased;
+  }
+  .wrap{width:100%; max-width:520px}
+  .card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    box-shadow:var(--shadow); padding:40px 32px; text-align:center;
+  }
+  .logo{width:76px;height:76px;margin:0 auto 18px;display:block;
+        filter:drop-shadow(0 8px 20px rgba(99,102,241,.35))}
+  h1{margin:0 0 8px; font-size:30px; letter-spacing:-.02em}
+  .tagline{margin:0 auto 28px; color:var(--muted); font-size:16px; line-height:1.5; max-width:360px}
+
+  /* ГЛАВНАЯ КНОПКА */
+  .cta{
+    display:block; width:100%; padding:16px 24px; margin:0 0 12px;
+    font-size:17px; font-weight:600; color:#fff; text-decoration:none;
+    border:0; border-radius:14px; cursor:pointer;
+    background:linear-gradient(135deg,var(--brand-1),var(--brand-2));
+    box-shadow:0 8px 24px rgba(99,102,241,.35);
+    transition:transform .12s ease, box-shadow .12s ease;
+  }
+  .cta:hover{transform:translateY(-2px); box-shadow:0 12px 30px rgba(99,102,241,.45)}
+  .cta:active{transform:translateY(0)}
+  .subnote{color:var(--muted); font-size:13px; margin:0}
+
+  /* ИНСТРУКЦИЯ */
+  .how{margin-top:34px; text-align:left}
+  .how h2{font-size:13px; text-transform:uppercase; letter-spacing:.08em;
+          color:var(--muted); margin:0 0 12px; font-weight:600; text-align:center}
+  .step{display:flex; gap:14px; align-items:flex-start; padding:14px 0}
+  .step + .step{border-top:1px solid var(--line)}
+  .num{flex:0 0 32px; height:32px; border-radius:10px; font-weight:700; font-size:15px;
+       display:flex; align-items:center; justify-content:center; color:#fff;
+       background:linear-gradient(135deg,var(--brand-1),var(--brand-2))}
+  .step b{display:block; font-size:15px; margin-bottom:2px}
+  .step span{color:var(--muted); font-size:14px; line-height:1.45}
+
+  .foot{margin-top:26px; text-align:center; color:var(--muted); font-size:13px}
+  .foot a{color:var(--brand-1); text-decoration:none}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="card">
+      <!-- == ПРАВЬ ТУТ: логотип / название / подзаголовок == -->
+      <img class="logo" src="/logo.svg" alt="VexaVPN">
+      <h1>VexaVPN</h1>
+      <p class="tagline">Быстрый и незаметный VPN. Обход блокировок за минуту — прямо через Telegram.</p>
+
+      <!-- == ПРАВЬ ТУТ: ссылка на бота == -->
+      <a class="cta" href="https://t.me/vexa_vpn_bot">Подключиться в Telegram</a>
+      <p class="subnote">Оформление подписки и личная ссылка — в боте</p>
+
+      <!-- == ПРАВЬ ТУТ: шаги инструкции == -->
+      <div class="how">
+        <h2>Как подключиться</h2>
+        <div class="step">
+          <div class="num">1</div>
+          <div><b>Откройте бота</b><span>Нажмите кнопку выше — откроется @vexa_vpn_bot в Telegram.</span></div>
+        </div>
+        <div class="step">
+          <div class="num">2</div>
+          <div><b>Оформите подписку</b><span>Выберите тариф в боте и получите персональную ссылку-подписку.</span></div>
+        </div>
+        <div class="step">
+          <div class="num">3</div>
+          <div><b>Установите приложение</b><span>Бот подскажет приложение (Happ и др.) и откроет его одной кнопкой — конфиг добавится сам.</span></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- == ПРАВЬ ТУТ: поддержка == -->
+    <p class="foot">Поддержка: <a href="https://t.me/byttte">@byttte</a></p>
+  </div>
+</body>
+</html>
