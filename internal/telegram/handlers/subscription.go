@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
-	"vpnbottg/internal/models"
+	"vpnbottg/internal/client/remnawave"
 	"vpnbottg/internal/service"
 	"vpnbottg/internal/telegram/keyboard"
 	"vpnbottg/internal/telegram/session"
@@ -244,7 +244,7 @@ func SendDevices(c tele.Context, subSvc *service.Subscription) error {
 				"Limit":   sub.DeviceLimit,
 				"SlotBar": slotBar,
 			}),
-			keyboard.DevicesKeyboard(devices),
+			keyboard.DevicesKeyboard(len(devices)),
 			&tele.SendOptions{ParseMode: tele.ModeHTML},
 		)
 	}
@@ -256,23 +256,27 @@ func SendDevices(c tele.Context, subSvc *service.Subscription) error {
 			"List":    formatDeviceList(devices),
 			"SlotBar": slotBar,
 		}),
-		keyboard.DevicesKeyboard(devices),
+		keyboard.DevicesKeyboard(len(devices)),
 		&tele.SendOptions{ParseMode: tele.ModeHTML},
 	)
 }
 
-func formatDeviceList(devices []*models.DeviceConnection) string {
+func formatDeviceList(devices []*remnawave.Device) string {
 	lines := make([]string, 0, len(devices))
 	for i, d := range devices {
 		platform := d.Platform
 		if platform == "" {
 			platform = "Неизвестно"
 		}
-		lastSeen := time.Unix(d.LastSeen, 0).Format("02.01 15:04")
+		// Модель уточняет строку, если панель её прислала (напр. "iPhone 15").
+		if d.DeviceModel != "" {
+			platform = platform + " · " + d.DeviceModel
+		}
+		lastSeen := time.Unix(d.UpdatedAt, 0).Format("02.01 15:04")
 		lines = append(lines, fmt.Sprintf(
 			"%s %s %s  ·  %s %s",
 			circleNum(i), platformEmoji(d.Platform), platform,
-			lastSeenIndicator(d.LastSeen), lastSeen,
+			lastSeenIndicator(d.UpdatedAt), lastSeen,
 		))
 	}
 	return strings.Join(lines, "\n")

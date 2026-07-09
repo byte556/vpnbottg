@@ -17,13 +17,6 @@ import (
 	"vpnbottg/internal/infra/logger"
 )
 
-// DeviceAuthorizer — проверка лимита устройств + учёт по HWID.
-// allowed=false → новое устройство сверх лимита, конфиг не отдаётся.
-// isNew=true → устройство зарегистрировано впервые.
-type DeviceAuthorizer interface {
-	AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (allowed, isNew bool, err error)
-}
-
 // upstreamHeaders — заголовки подписки, которые клиенты ждут от sub-сервиса.
 var upstreamHeaders = []string{
 	"Content-Type",
@@ -34,24 +27,24 @@ var upstreamHeaders = []string{
 	"Content-Disposition",
 }
 
+// hwidHeaders — заголовки идентификации устройства, которые шлёт Happ и читает
+// панель Remnawave для нативного HWID-лимита (обязателен только x-hwid).
+var hwidHeaders = []string{"x-hwid", "x-device-os", "x-ver-os", "x-device-model"}
+
 type Server struct {
 	upstreamTemplate string
 	publicBaseURL    string
 	botURL           string
 	support          string
-	repo             DeviceAuthorizer
 	http             *http.Client
-	OnNewDevice     func(subID, platform string)
-	OnDeviceBlocked func(subID, platform string)
 }
 
-func New(upstreamTemplate, publicBaseURL, botURL, support string, repo DeviceAuthorizer) *Server {
+func New(upstreamTemplate, publicBaseURL, botURL, support string) *Server {
 	return &Server{
 		upstreamTemplate: upstreamTemplate,
 		publicBaseURL:    strings.TrimRight(publicBaseURL, "/"),
 		botURL:           strings.TrimSpace(botURL),
 		support:          strings.TrimSpace(support),
-		repo:             repo,
 		http: &http.Client{
 			Timeout: 15 * time.Second,
 			Transport: &http.Transport{
@@ -97,13 +90,10 @@ func (s *Server) subURL(subID string) string {
 func (s *Server) handleSub(w http.ResponseWriter, r *http.Request) {
 	subID := r.PathValue("sub_id")
 	ua := r.UserAgent()
-	hw := hwid(r)
-	plat := platform(r)
 
 	log := logger.L().With().
 		Str("handler", "sub").
 		Str("sub_id", subID).
-		Str("platform", plat).
 		Logger()
 
 	if subID == "" {
@@ -111,35 +101,10 @@ func (s *Server) handleSub(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Лимит устройств по HWID (x-hwid от Happ).
-	if s.repo != nil {
-		// Без HWID идентифицировать устройство нечем — строго отказываем.
-		if hw == "" {
-			log.Warn().Msg("sub: missing x-hwid, refusing")
-			http.Error(w, "device id required", http.StatusForbidden)
-			return
-		}
-		allowed, isNew, err := s.repo.AuthorizeDeviceConnection(r.Context(), subID, hw, ua, plat)
-		switch {
-		case err != nil:
-			// fail-open: разовый сбой БД не должен блокировать всех пользователей.
-			log.Error().Err(err).Str("hwid", hw).Msg("sub: authorize failed, serving anyway (fail-open)")
-		case !allowed:
-			log.Warn().Str("hwid", hw).Msg("sub: device limit reached, refusing")
-			if s.OnDeviceBlocked != nil {
-				go s.OnDeviceBlocked(subID, plat)
-			}
-			http.Error(w, "device limit reached", http.StatusForbidden)
-			return
-		case isNew:
-			log.Info().Str("hwid", hw).Str("platform", plat).Msg("sub: new device registered")
-			if s.OnNewDevice != nil {
-				go s.OnNewDevice(subID, plat)
-			}
-		}
-	}
-
-	body, headers, status, err := s.fetchUpstream(r.Context(), subID, ua, r.Header.Get("Accept"))
+	// Лимит устройств по HWID теперь обеспечивает панель Remnawave: она читает
+	// x-hwid/x-device-os и сама режет по hwidDeviceLimit. Наша задача — прокинуть
+	// эти заголовки наверх (см. fetchUpstream).
+	body, headers, status, err := s.fetchUpstream(r.Context(), subID, ua, r.Header.Get("Accept"), r.Header)
 	if err != nil {
 		log.Error().Err(err).Msg("sub: upstream fetch failed")
 		http.Error(w, "subscription unavailable", http.StatusBadGateway)
@@ -167,8 +132,9 @@ func (s *Server) handleSub(w http.ResponseWriter, r *http.Request) {
 }
 
 // fetchUpstream забирает контент подписки из панели, проксируя User-Agent
-// (панель отдаёт разный формат в зависимости от клиента).
-func (s *Server) fetchUpstream(ctx context.Context, subID, ua, accept string) ([]byte, http.Header, int, error) {
+// (панель отдаёт разный формат в зависимости от клиента) и заголовки HWID
+// (панель по ним ведёт нативный учёт устройств).
+func (s *Server) fetchUpstream(ctx context.Context, subID, ua, accept string, clientHeaders http.Header) ([]byte, http.Header, int, error) {
 	url := fmt.Sprintf(s.upstreamTemplate, subID)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
@@ -180,6 +146,13 @@ func (s *Server) fetchUpstream(ctx context.Context, subID, ua, accept string) ([
 	}
 	if accept != "" {
 		req.Header.Set("Accept", accept)
+	}
+	// Прокидываем заголовки идентификации устройства — по ним панель Remnawave
+	// регистрирует HWID и применяет лимит устройств.
+	for _, h := range hwidHeaders {
+		if v := clientHeaders.Get(h); v != "" {
+			req.Header.Set(h, v)
+		}
 	}
 	// Remnawave proxy-check требует эти заголовки (ждёт запрос из-за reverse
 	// proxy по HTTPS). Безвредны для любого upstream'а.

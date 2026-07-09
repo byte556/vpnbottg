@@ -44,18 +44,6 @@ type Referral struct {
 }
 
 // DeviceConnection — факт обращения устройства к подписке через sub-сервер.
-// DeviceID — это HWID из заголовка x-hwid клиента Happ (по нему идёт трекинг).
-// В будущем — для отображения в меню и отвязки устройств, пер-платформенной тарификации.
-type DeviceConnection struct {
-	ID        int64  `repository:"id"`
-	SubID     string `repository:"sub_id"`
-	DeviceID  string `repository:"device_id"` // HWID (x-hwid)
-	Platform  string `repository:"platform"`
-	UserAgent string `repository:"user_agent"`
-	FirstSeen int64  `repository:"first_seen"`
-	LastSeen  int64  `repository:"last_seen"`
-}
-
 // PromoCode — промокод для розыгрышей. RewardType определяет, что даёт активация:
 // "days" — бесплатные дни подписки (Days/GB/Devices), "discount" — % скидки (DiscountPct).
 // Один код, много активаций до MaxUses; одна активация на пользователя (promo_redemptions).

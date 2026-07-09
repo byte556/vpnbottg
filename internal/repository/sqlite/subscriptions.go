@@ -111,19 +111,6 @@ func (d *DB) MarkExpiredNotified(ctx context.Context, subID int64) error {
 	return err
 }
 
-func (d *DB) GetUserIDBySubID(ctx context.Context, xuiSubID string) (int64, error) {
-	var userID int64
-	err := d.sql.QueryRowContext(ctx, `
-		SELECT user_id FROM subscriptions
-		WHERE xui_sub_id = ? AND expires_at > unixepoch()
-		ORDER BY expires_at DESC LIMIT 1
-	`, xuiSubID).Scan(&userID)
-	if err != nil {
-		return 0, fmt.Errorf("getUserIDBySubID: %w", err)
-	}
-	return userID, nil
-}
-
 func scanSubs(rows *sql.Rows) ([]*models.Subscription, error) {
 	var result []*models.Subscription
 	for rows.Next() {

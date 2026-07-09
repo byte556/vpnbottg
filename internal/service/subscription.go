@@ -13,7 +13,6 @@ import (
 
 type Subscription struct {
 	subs           repository.Subscriptions
-	devices        repository.DeviceConnections
 	audit          repository.Audit
 	panel          *remnawave.Client
 	subURLTemplate string
@@ -21,14 +20,12 @@ type Subscription struct {
 
 func NewSubscriptionService(
 	subs repository.Subscriptions,
-	devices repository.DeviceConnections,
 	audit repository.Audit,
 	panel *remnawave.Client,
 	subURLTemplate string,
 ) *Subscription {
 	return &Subscription{
 		subs:           subs,
-		devices:        devices,
 		audit:          audit,
 		panel:          panel,
 		subURLTemplate: subURLTemplate,
@@ -63,14 +60,6 @@ func (s *Subscription) Create(ctx context.Context, userID int64, planDays, devic
 	if err := s.panel.ResetClient(ctx, email, 0, expiresAt, deviceLimit); err != nil {
 		log.Error().Err(err).Msg("createSubscription: panel resetClient failed")
 		return nil, fmt.Errorf("createSubscription reset client: %w", err)
-	}
-
-	// Чистим учёт устройств прошлой подписки с тем же subId — новая покупка
-	// получает свежие слоты, устройства перерегистрируются при первом запросе.
-	if directClient.SubID != "" {
-		if err := s.devices.DeleteDeviceConnectionsBySubID(ctx, directClient.SubID); err != nil {
-			log.Warn().Err(err).Str("xui_sub_id", directClient.SubID).Msg("createSubscription: clear old devices failed")
-		}
 	}
 
 	sub := &models.Subscription{
@@ -189,8 +178,6 @@ func (s *Subscription) setDeviceLimit(ctx context.Context, userID int64, sub *mo
 		return nil
 	}
 
-	log := logger.L().With().Int64("user_id", userID).Int("new_limit", newLimit).Int("delta", delta).Logger()
-
 	// Меняем только лимит подключений (addGB = 0); delta может быть отрицательным.
 	if err := s.panel.AddClientCapacity(ctx, sub.XUIEmailDirect, 0, delta); err != nil {
 		return fmt.Errorf("setDeviceLimit: panel: %w", err)
@@ -198,72 +185,43 @@ func (s *Subscription) setDeviceLimit(ctx context.Context, userID int64, sub *mo
 	if err := s.subs.UpdateSubscriptionDevices(ctx, sub.ID, newLimit, sub.TrafficGB); err != nil {
 		return fmt.Errorf("setDeviceLimit: db: %w", err)
 	}
-
-	// При уменьшении освобождаем слоты: если зарегистрированных устройств больше
-	// нового лимита — удаляем самые новые записи из БД (последние подключившиеся).
-	if delta < 0 {
-		subID := sub.XUISubID
-		if subID == "" {
-			if _, err := s.GetConfigURL(ctx, userID); err == nil {
-				if reloaded, rErr := s.subs.GetActiveSubscription(ctx, userID); rErr == nil {
-					subID = reloaded.XUISubID
-				}
-			}
-		}
-		if subID != "" {
-			if count, err := s.devices.CountDeviceConnections(ctx, subID); err != nil {
-				log.Warn().Err(err).Msg("setDeviceLimit: count connections failed")
-			} else if excess := count - newLimit; excess > 0 {
-				if err := s.devices.DeleteNewestDeviceConnections(ctx, subID, excess); err != nil {
-					log.Warn().Err(err).Int("excess", excess).Msg("setDeviceLimit: delete excess failed")
-				} else {
-					log.Info().Int("excess", excess).Msg("setDeviceLimit: freed device slots")
-				}
-			}
-		}
-	}
+	// Освобождение лишних слотов при уменьшении лимита теперь не нужно: панель
+	// Remnawave сама применяет новый hwidDeviceLimit и режет лишние устройства.
 	return nil
 }
 
-func (s *Subscription) ListDevices(ctx context.Context, userID int64) (*models.Subscription, []*models.DeviceConnection, error) {
+// ListDevices возвращает активную подписку и её HWID-устройства из панели Remnawave.
+func (s *Subscription) ListDevices(ctx context.Context, userID int64) (*models.Subscription, []*remnawave.Device, error) {
 	sub, err := s.subs.GetActiveSubscription(ctx, userID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("listDevices: %w", err)
 	}
-	if sub.XUISubID == "" {
-		if _, err := s.GetConfigURL(ctx, userID); err != nil {
-			return nil, nil, fmt.Errorf("listDevices sync sub id: %w", err)
-		}
-		sub, err = s.subs.GetActiveSubscription(ctx, userID)
-		if err != nil {
-			return nil, nil, fmt.Errorf("listDevices reload: %w", err)
-		}
-	}
-	devices, err := s.devices.ListDeviceConnections(ctx, sub.XUISubID)
+	devices, err := s.panel.ListDevices(ctx, sub.XUIEmailDirect)
 	if err != nil {
 		return nil, nil, fmt.Errorf("listDevices: %w", err)
 	}
 	return sub, devices, nil
 }
 
-func (s *Subscription) DeleteDevice(ctx context.Context, userID int64, deviceConnID int64) error {
+// DeleteDevice отвязывает устройство активной подписки по его индексу в списке
+// (список берётся из панели; индекс приходит из callback'а кнопки).
+func (s *Subscription) DeleteDevice(ctx context.Context, userID int64, index int) error {
 	sub, err := s.subs.GetActiveSubscription(ctx, userID)
 	if err != nil {
 		return fmt.Errorf("deleteDevice: %w", err)
 	}
-	if sub.XUISubID == "" {
-		if _, err := s.GetConfigURL(ctx, userID); err != nil {
-			return fmt.Errorf("deleteDevice sync sub id: %w", err)
-		}
-		sub, err = s.subs.GetActiveSubscription(ctx, userID)
-		if err != nil {
-			return fmt.Errorf("deleteDevice reload: %w", err)
-		}
+	devices, err := s.panel.ListDevices(ctx, sub.XUIEmailDirect)
+	if err != nil {
+		return fmt.Errorf("deleteDevice list: %w", err)
 	}
-	if err := s.devices.DeleteDeviceConnectionByID(ctx, sub.XUISubID, deviceConnID); err != nil {
+	if index < 0 || index >= len(devices) {
+		return fmt.Errorf("deleteDevice: index %d out of range (%d devices)", index, len(devices))
+	}
+	hwid := devices[index].HWID
+	if err := s.panel.DeleteDevice(ctx, sub.XUIEmailDirect, hwid); err != nil {
 		return fmt.Errorf("deleteDevice: %w", err)
 	}
-	_ = s.audit.Log(ctx, &userID, "device_deleted", fmt.Sprintf(`{"sub_id":%d,"xui_sub_id":%q,"device_conn_id":%d}`, sub.ID, sub.XUISubID, deviceConnID))
+	_ = s.audit.Log(ctx, &userID, "device_deleted", fmt.Sprintf(`{"sub_id":%d,"hwid":%q}`, sub.ID, hwid))
 	return nil
 }
 

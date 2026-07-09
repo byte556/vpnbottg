@@ -2,7 +2,6 @@ package keyboard
 
 import (
 	"fmt"
-	"vpnbottg/internal/models"
 	"vpnbottg/internal/telegram/session"
 	"vpnbottg/internal/telegram/texts"
 
@@ -214,12 +213,15 @@ func SettingsKeyboard() *tele.ReplyMarkup {
 	return m
 }
 
-func DevicesKeyboard(devices []*models.DeviceConnection) *tele.ReplyMarkup {
+// DevicesKeyboard строит кнопки «удалить #N» по числу устройств.
+// В callback уходит индекс устройства (HWID слишком длинный для 64-байт callback);
+// сервис заново берёт список из панели и удаляет по индексу.
+func DevicesKeyboard(count int) *tele.ReplyMarkup {
 	m := &tele.ReplyMarkup{}
-	rows := make([]tele.Row, 0, len(devices)+1)
-	for i, device := range devices {
+	rows := make([]tele.Row, 0, count+1)
+	for i := 0; i < count; i++ {
 		label := fmt.Sprintf("🗑 Удалить #%d", i+1)
-		rows = append(rows, m.Row(m.Data(label, DeleteDevice, fmt.Sprintf("%d", device.ID))))
+		rows = append(rows, m.Row(m.Data(label, DeleteDevice, fmt.Sprintf("%d", i))))
 	}
 	rows = append(rows, m.Row(m.Data(texts.T("buttons.back"), Back)))
 	m.Inline(rows...)

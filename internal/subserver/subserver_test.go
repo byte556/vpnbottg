@@ -1,31 +1,11 @@
 package subserver
 
 import (
-	"context"
-	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
 )
-
-func TestDetectPlatform(t *testing.T) {
-	cases := map[string]string{
-		"Mozilla/5.0 (Linux; Android 14)":                        "Android",
-		"Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X)": "iOS",
-		"Happ/1.0 (iPad)": "iOS",
-		"Mozilla/5.0 (Windows NT 10.0; Win64; x64)":       "Windows",
-		"Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7)": "macOS",
-		"Keenetic/3.7":                   "router",
-		"curl/8.0 (x86_64-pc-linux-gnu)": "Linux",
-		"":                               "unknown",
-	}
-	for ua, want := range cases {
-		if got := detectPlatform(ua); got != want {
-			t.Errorf("detectPlatform(%q) = %q, want %q", ua, got, want)
-		}
-	}
-}
 
 func TestParseUserinfo(t *testing.T) {
 	up, down, total, expire, ok := parseUserinfo("upload=10; download=20; total=100; expire=1718900000")
@@ -38,7 +18,7 @@ func TestParseUserinfo(t *testing.T) {
 }
 
 func TestHandlePage(t *testing.T) {
-	// Заглушка панели: отдаёт Subscription-Userinfo, как реальный 3X-UI sub-сервис.
+	// Заглушка панели: отдаёт Subscription-Userinfo, как реальный sub-сервис.
 	// download=25 ГБ, total=100 ГБ → 25%; expire=4102444800 (2100 год) → активна.
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Subscription-Userinfo",
@@ -47,7 +27,7 @@ func TestHandlePage(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", nil)
+	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte")
 
 	req := httptest.NewRequest("GET", "/p/abc123", nil)
 	req.SetPathValue("sub_id", "abc123")
@@ -80,7 +60,7 @@ func TestHandlePage(t *testing.T) {
 }
 
 func TestHandleLanding(t *testing.T) {
-	s := New("http://unused/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", nil)
+	s := New("http://unused/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte")
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rec := httptest.NewRecorder()
@@ -91,10 +71,10 @@ func TestHandleLanding(t *testing.T) {
 	}
 	body := rec.Body.String()
 	checks := map[string]string{
-		"https://t.me/vexa_bot":  "telegram bot link",
-		"Открыть в Telegram":     "cta button",
-		"https://t.me/byttte":    "support link (без @)",
-		"@byttte":                "support handle",
+		"https://t.me/vexa_bot": "telegram bot link",
+		"Открыть в Telegram":    "cta button",
+		"https://t.me/byttte":   "support link (без @)",
+		"@byttte":               "support handle",
 	}
 	for substr, what := range checks {
 		if !strings.Contains(body, substr) {
@@ -109,7 +89,7 @@ func TestHandleLanding(t *testing.T) {
 
 // Без bot_url кнопка «Открыть в Telegram» не рендерится.
 func TestHandleLandingNoBotURL(t *testing.T) {
-	s := New("http://unused/%s", "https://vpn.example.com:8081", "", "", nil)
+	s := New("http://unused/%s", "https://vpn.example.com:8081", "", "")
 
 	req := httptest.NewRequest("GET", "/", nil)
 	rec := httptest.NewRecorder()
@@ -123,18 +103,18 @@ func TestHandleLandingNoBotURL(t *testing.T) {
 	}
 }
 
-// Устройство в пределах лимита: x-hwid есть, authorize=allowed → конфиг отдаётся,
-// platform берётся из x-device-os, UA сохраняется.
-func TestHandleSubAllowsDevice(t *testing.T) {
-	upstreamHit := false
+// Happ-клиент получает конфиг, а заголовки идентификации устройства (x-hwid и др.)
+// прокидываются в панель для нативного HWID-учёта.
+func TestHandleSubForwardsHWID(t *testing.T) {
+	var gotHWID, gotOS string
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		upstreamHit = true
+		gotHWID = r.Header.Get("x-hwid")
+		gotOS = r.Header.Get("x-device-os")
 		_, _ = w.Write([]byte("config-body"))
 	}))
 	defer upstream.Close()
 
-	repo := &fakeDeviceRepo{allowed: true}
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", repo)
+	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte")
 
 	req := httptest.NewRequest("GET", "/sub/abc123", nil)
 	req.SetPathValue("sub_id", "abc123")
@@ -145,110 +125,12 @@ func TestHandleSubAllowsDevice(t *testing.T) {
 
 	s.handleSub(rec, req)
 
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	if rec.Code != http.StatusOK || rec.Body.String() != "config-body" {
+		t.Fatalf("status=%d body=%q, want 200/config-body", rec.Code, rec.Body.String())
 	}
-	if !upstreamHit || rec.Body.String() != "config-body" {
-		t.Fatalf("config must be proxied; hit=%v body=%q", upstreamHit, rec.Body.String())
+	if gotHWID != "HWID-XYZ" || gotOS != "iOS" {
+		t.Fatalf("upstream got x-hwid=%q x-device-os=%q, want HWID-XYZ/iOS", gotHWID, gotOS)
 	}
-	if repo.deviceID != "HWID-XYZ" || repo.platform != "iOS" || repo.userAgent != "Happ/1.0" {
-		t.Fatalf("authorized device=%q ua=%q platform=%q, want HWID-XYZ/Happ/1.0/iOS",
-			repo.deviceID, repo.userAgent, repo.platform)
-	}
-}
-
-// Новое устройство сверх лимита: authorize=denied → 403, конфиг НЕ отдаётся.
-func TestHandleSubBlocksOverLimit(t *testing.T) {
-	upstreamHit := false
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		upstreamHit = true
-		_, _ = w.Write([]byte("config-body"))
-	}))
-	defer upstream.Close()
-
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", &fakeDeviceRepo{allowed: false})
-
-	req := httptest.NewRequest("GET", "/sub/abc123", nil)
-	req.SetPathValue("sub_id", "abc123")
-	req.Header.Set("x-hwid", "HWID-NEW")
-	rec := httptest.NewRecorder()
-
-	s.handleSub(rec, req)
-
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
-	}
-	if upstreamHit {
-		t.Fatal("upstream must NOT be called when device is over limit")
-	}
-}
-
-// Без x-hwid идентифицировать устройство нечем → 403, конфиг НЕ отдаётся.
-func TestHandleSubRequiresHWID(t *testing.T) {
-	upstreamHit := false
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		upstreamHit = true
-		_, _ = w.Write([]byte("config-body"))
-	}))
-	defer upstream.Close()
-
-	repo := &fakeDeviceRepo{allowed: true}
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", repo)
-
-	req := httptest.NewRequest("GET", "/sub/abc123", nil)
-	req.SetPathValue("sub_id", "abc123")
-	rec := httptest.NewRecorder()
-
-	s.handleSub(rec, req)
-
-	if rec.Code != http.StatusForbidden {
-		t.Fatalf("status = %d, want %d", rec.Code, http.StatusForbidden)
-	}
-	if upstreamHit || repo.called {
-		t.Fatal("no x-hwid: must not authorize or call upstream")
-	}
-}
-
-// Ошибка БД при проверке → fail-open: конфиг всё равно отдаётся.
-func TestHandleSubFailOpenOnDBError(t *testing.T) {
-	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte("config-body"))
-	}))
-	defer upstream.Close()
-
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", &fakeDeviceRepo{err: errors.New("db down")})
-
-	req := httptest.NewRequest("GET", "/sub/abc123", nil)
-	req.SetPathValue("sub_id", "abc123")
-	req.Header.Set("x-hwid", "HWID-XYZ")
-	rec := httptest.NewRecorder()
-
-	s.handleSub(rec, req)
-
-	if rec.Code != http.StatusOK {
-		t.Fatalf("status = %d, want %d (fail-open)", rec.Code, http.StatusOK)
-	}
-	if rec.Body.String() != "config-body" {
-		t.Fatalf("body = %q, want config proxied on db error", rec.Body.String())
-	}
-}
-
-type fakeDeviceRepo struct {
-	allowed   bool
-	isNew     bool
-	err       error
-	called    bool
-	deviceID  string
-	userAgent string
-	platform  string
-}
-
-func (f *fakeDeviceRepo) AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (bool, bool, error) {
-	f.called = true
-	f.deviceID = deviceID
-	f.userAgent = userAgent
-	f.platform = platform
-	return f.allowed, f.isNew, f.err
 }
 
 // Unified endpoint: Happ UA → конфиг (text/plain), браузерный UA → HTML-страница.
@@ -258,8 +140,7 @@ func TestUnifiedEndpointHappGetsConfig(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	repo := &fakeDeviceRepo{allowed: true, isNew: true}
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", repo)
+	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte")
 
 	req := httptest.NewRequest("GET", "/sub/abc123", nil)
 	req.SetPathValue("sub_id", "abc123")
@@ -285,7 +166,7 @@ func TestUnifiedEndpointBrowserGetsPage(t *testing.T) {
 	}))
 	defer upstream.Close()
 
-	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte", nil)
+	s := New(upstream.URL+"/sub/%s", "https://vpn.example.com:8081", "https://t.me/vexa_bot", "@byttte")
 
 	req := httptest.NewRequest("GET", "/sub/abc123", nil)
 	req.SetPathValue("sub_id", "abc123")

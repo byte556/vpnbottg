@@ -28,8 +28,6 @@ type Subscriptions interface {
 	GetRecentlyExpiredUnnotified(ctx context.Context, since int64) ([]*models.Subscription, error)
 	MarkReminded(ctx context.Context, subID int64) error
 	MarkExpiredNotified(ctx context.Context, subID int64) error
-	// GetUserIDBySubID возвращает tg_id владельца активной подписки по xui_sub_id.
-	GetUserIDBySubID(ctx context.Context, xuiSubID string) (int64, error)
 }
 
 type Payments interface {
@@ -56,26 +54,6 @@ type Referrals interface {
 
 type Audit interface {
 	Log(ctx context.Context, userID *int64, action, payload string) error
-}
-
-// DeviceConnections — учёт и лимитирование устройств подписки.
-// Идентификация по HWID (x-hwid от Happ); device_id хранит HWID.
-type DeviceConnections interface {
-	// AuthorizeDeviceConnection — проверка device_limit + upsert по (sub_id, device_id=HWID).
-	// allowed=true, если устройство уже зарегано или лимит ещё не достигнут;
-	// новое устройство сверх лимита не пишется и получает allowed=false.
-	// isNew=true, если устройство было зарегистрировано впервые (не обновление existing).
-	AuthorizeDeviceConnection(ctx context.Context, subID, deviceID, userAgent, platform string) (allowed, isNew bool, err error)
-	ListDeviceConnections(ctx context.Context, subID string) ([]*models.DeviceConnection, error)
-	DeleteDeviceConnectionByID(ctx context.Context, subID string, deviceConnID int64) error
-	// CountDeviceConnections возвращает число зарегистрированных устройств подписки.
-	CountDeviceConnections(ctx context.Context, subID string) (int, error)
-	// DeleteNewestDeviceConnections удаляет n самых новых устройств подписки
-	// (по last_seen). Освобождает слоты при уменьшении лимита устройств.
-	DeleteNewestDeviceConnections(ctx context.Context, subID string, n int) error
-	// DeleteDeviceConnectionsBySubID удаляет все устройства подписки
-	// (свежие слоты при выдаче новой подписки с тем же subId).
-	DeleteDeviceConnectionsBySubID(ctx context.Context, subID string) error
 }
 
 // ErrPromoLimitReached — у промокода исчерпан лимит активаций (used_count >= max_uses) или он неактивен.

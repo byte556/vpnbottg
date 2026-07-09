@@ -13,11 +13,11 @@ import (
 
 func DeleteDevice(subSvc *service.Subscription) tele.HandlerFunc {
 	return func(c tele.Context) error {
-		deviceConnID, err := strconv.ParseInt(c.Data(), 10, 64)
-		if err != nil || deviceConnID <= 0 {
+		index, err := strconv.Atoi(c.Data())
+		if err != nil || index < 0 {
 			return c.Respond(&tele.CallbackResponse{Text: texts.T("error.provision")})
 		}
-		if err := subSvc.DeleteDevice(context.Background(), c.Sender().ID, deviceConnID); err != nil {
+		if err := subSvc.DeleteDevice(context.Background(), c.Sender().ID, index); err != nil {
 			logger.L().Error().Err(err).Int64("user_id", c.Sender().ID).Msg("deleteDevice: failed")
 			return c.Respond(&tele.CallbackResponse{Text: texts.T("error.provision")})
 		}
