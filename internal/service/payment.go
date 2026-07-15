@@ -4,6 +4,7 @@ package service
 import (
 	"context"
 	"fmt"
+
 	"vpnbottg/internal/client/yookassa"
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/models"
@@ -35,6 +36,7 @@ func (s *PaymentService) GetLastSucceededPayment(ctx context.Context, userID int
 func (s *PaymentService) GetPaymentByProviderID(ctx context.Context, providerPaymentID string) (*models.Payment, error) {
 	return s.payments.GetPaymentByProviderID(ctx, providerPaymentID)
 }
+
 func (s *PaymentService) InitiatePayment(
 	userID int64,
 	req yookassa.CreatePaymentReq,

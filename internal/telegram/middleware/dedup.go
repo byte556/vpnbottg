@@ -3,6 +3,7 @@ package middleware
 import (
 	"sync"
 	"time"
+
 	"vpnbottg/internal/infra/logger"
 
 	tele "gopkg.in/telebot.v3"

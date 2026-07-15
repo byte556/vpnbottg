@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+
 	"vpnbottg/internal/infra/db"
 )
 
@@ -23,7 +24,8 @@ func New(path string) (*DB, error) {
 // Сначала читает XUI-email'ы из подписок (нужны для удаления в панели),
 // затем чистит: subscriptions → payments → referrals → audit_log (NULL) → users.
 func (d *DB) PurgeUserData(ctx context.Context, tgID int64) (xuiEmailDirect, xuiEmailRelay string, err error) {
-	row := d.sql.QueryRowContext(ctx,
+	row := d.sql.QueryRowContext(
+		ctx,
 		`SELECT xui_email_direct, xui_email_relay FROM subscriptions WHERE user_id = ? ORDER BY id DESC LIMIT 1`,
 		tgID,
 	)

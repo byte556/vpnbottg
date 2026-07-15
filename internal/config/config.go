@@ -48,11 +48,11 @@ type Remnawave struct {
 }
 
 type Bot struct {
-	Token              string      `yaml:"token"`
-	AdminID            int64       `yaml:"admin_id"`
-	Support            string      `yaml:"support"`
-	ReferralRewardPct  int         `yaml:"referral_reward_pct"`
-	Constructor        Constructor `yaml:"constructor"`
+	Token             string      `yaml:"token"`
+	AdminID           int64       `yaml:"admin_id"`
+	Support           string      `yaml:"support"`
+	ReferralRewardPct int         `yaml:"referral_reward_pct"`
+	Constructor       Constructor `yaml:"constructor"`
 }
 
 // SubServer removed: раздача подписок вынесена на официальную Remnawave

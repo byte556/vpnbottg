@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+
 	"vpnbottg/internal/config"
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/models"
@@ -49,6 +50,7 @@ func (s *User) GetUser(ctx context.Context, tgID int64) (*models.User, error) {
 	}
 	return u, nil
 }
+
 func (s *User) IsAdmin(userID int64) bool {
 	adminID := config.Cfg.Bot.AdminID
 	return adminID != 0 && userID == adminID

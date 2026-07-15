@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+
 	"vpnbottg/internal/models"
 	"vpnbottg/internal/repository"
 )
@@ -57,7 +58,8 @@ func (d *DB) GetPendingPayments(ctx context.Context) ([]*models.Payment, error) 
 
 func (d *DB) HasSucceededPayment(ctx context.Context, userID int64) (bool, error) {
 	var count int
-	err := d.sql.QueryRowContext(ctx,
+	err := d.sql.QueryRowContext(
+		ctx,
 		`SELECT COUNT(*) FROM payments WHERE user_id = ? AND status = 'succeeded'`,
 		userID,
 	).Scan(&count)
@@ -85,7 +87,8 @@ func (d *DB) GetLastSucceededPayment(ctx context.Context, userID int64) (*models
 }
 
 func (d *DB) MarkRefunded(ctx context.Context, providerPaymentID string) error {
-	_, err := d.sql.ExecContext(ctx,
+	_, err := d.sql.ExecContext(
+		ctx,
 		`UPDATE payments SET status = 'refunded' WHERE provider_payment_id = ?`,
 		providerPaymentID,
 	)

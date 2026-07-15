@@ -3,6 +3,7 @@ package sqlite
 import (
 	"context"
 	"time"
+
 	"vpnbottg/internal/repository"
 )
 
@@ -18,7 +19,8 @@ func (d *DB) GetBotStats(ctx context.Context) (*repository.BotStats, error) {
 	if err := d.sql.QueryRowContext(ctx, `SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='succeeded'`).Scan(&s.TotalRevenue); err != nil {
 		return nil, err
 	}
-	if err := d.sql.QueryRowContext(ctx,
+	if err := d.sql.QueryRowContext(
+		ctx,
 		`SELECT COALESCE(SUM(amount),0) FROM payments WHERE status='succeeded' AND created_at >= unixepoch('now','start of day')`,
 	).Scan(&s.TodayRevenue); err != nil {
 		return nil, err

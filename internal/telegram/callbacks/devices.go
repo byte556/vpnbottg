@@ -3,6 +3,7 @@ package callbacks
 import (
 	"context"
 	"strconv"
+
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/service"
 	"vpnbottg/internal/telegram/handlers"

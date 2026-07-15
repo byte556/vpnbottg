@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+
 	"vpnbottg/internal/models"
 	"vpnbottg/internal/repository"
 )
@@ -87,7 +88,8 @@ func (d *DB) DeactivatePromoCode(ctx context.Context, code string) error {
 
 func (d *DB) HasRedeemed(ctx context.Context, promoID, userID int64) (bool, error) {
 	var count int
-	if err := d.sql.QueryRowContext(ctx,
+	if err := d.sql.QueryRowContext(
+		ctx,
 		`SELECT COUNT(*) FROM promo_redemptions WHERE promo_id = ? AND user_id = ?`, promoID, userID,
 	).Scan(&count); err != nil {
 		return false, fmt.Errorf("hasRedeemed: %w", err)
@@ -107,7 +109,8 @@ func (d *DB) RedeemPromo(ctx context.Context, promoID, userID int64) (err error)
 		}
 	}()
 
-	if _, err = tx.ExecContext(ctx,
+	if _, err = tx.ExecContext(
+		ctx,
 		`INSERT INTO promo_redemptions (promo_id, user_id) VALUES (?, ?)`, promoID, userID,
 	); err != nil {
 		if isUniqueViolation(err) {
@@ -117,7 +120,8 @@ func (d *DB) RedeemPromo(ctx context.Context, promoID, userID int64) (err error)
 		return fmt.Errorf("redeemPromo: insert redemption: %w", err)
 	}
 
-	res, err := tx.ExecContext(ctx,
+	res, err := tx.ExecContext(
+		ctx,
 		`UPDATE promo_codes SET used_count = used_count + 1 WHERE id = ? AND used_count < max_uses AND active = 1`, promoID,
 	)
 	if err != nil {
@@ -150,12 +154,14 @@ func (d *DB) ReleasePromo(ctx context.Context, promoID, userID int64) (err error
 		}
 	}()
 
-	if _, err = tx.ExecContext(ctx,
+	if _, err = tx.ExecContext(
+		ctx,
 		`DELETE FROM promo_redemptions WHERE promo_id = ? AND user_id = ?`, promoID, userID,
 	); err != nil {
 		return fmt.Errorf("releasePromo: delete redemption: %w", err)
 	}
-	if _, err = tx.ExecContext(ctx,
+	if _, err = tx.ExecContext(
+		ctx,
 		`UPDATE promo_codes SET used_count = used_count - 1 WHERE id = ? AND used_count > 0`, promoID,
 	); err != nil {
 		return fmt.Errorf("releasePromo: decrement: %w", err)

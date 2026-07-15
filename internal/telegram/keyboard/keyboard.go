@@ -2,6 +2,7 @@ package keyboard
 
 import (
 	"fmt"
+
 	"vpnbottg/internal/telegram/session"
 	"vpnbottg/internal/telegram/texts"
 
@@ -194,7 +195,8 @@ func Constructor(s *session.ConstructorState, finalPrice int) *tele.ReplyMarkup 
 	} else {
 		rows = append(rows, m.Row(monthBtn(1), monthBtn(3), monthBtn(6), monthBtn(12)))
 	}
-	rows = append(rows,
+	rows = append(
+		rows,
 		m.Row(m.Data(buyLabel, Buy)),
 		m.Row(m.Data(texts.T("buttons.back"), Back)),
 	)

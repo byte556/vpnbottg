@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
+
 	"vpnbottg/internal/client/remnawave"
 	"vpnbottg/internal/client/yookassa"
 	"vpnbottg/internal/config"

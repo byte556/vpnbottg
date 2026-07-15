@@ -3,6 +3,7 @@ package callbacks
 import (
 	"context"
 	"fmt"
+
 	"vpnbottg/internal/client/yookassa"
 	"vpnbottg/internal/config"
 	"vpnbottg/internal/infra/logger"
