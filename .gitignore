@@ -4,3 +4,10 @@ bot.db-shm
 bot.db-wal
 vpnbot
 vpnbot.exe
+
+# Локальные SQLite-файлы
+*.sqlite
+
+# IDE / редакторы
+.idea/
+opencode.json

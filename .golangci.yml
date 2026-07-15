@@ -1,0 +1,34 @@
+version: "2"
+
+linters:
+  enable:
+    - govet
+    - staticcheck
+    - unused
+    - ineffassign
+    - errcheck
+    - misspell
+    - unconvert
+    - bodyclose
+    - nilerr
+  settings:
+    misspell:
+      locale: US
+    errcheck:
+      # Идиоматичные Close() в defer и телеметрия — не считаем за ошибку.
+      exclude-functions:
+        - (io.Closer).Close
+        - (*database/sql.Rows).Close
+        - (io.ReadCloser).Close
+  exclusions:
+    generated: lax
+    rules:
+      # Тесты: допускаем незакрытые проверки ошибок в ассертах.
+      - path: _test\.go
+        linters:
+          - errcheck
+
+formatters:
+  enable:
+    - gofumpt
+    - goimports
