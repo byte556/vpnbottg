@@ -1,0 +1,18 @@
+[
+  { "name": "menu_main",      "title": "VexaVPN",             "icon": "a glossy 3D dark-blue rounded shield with a subtle keyhole, calm confident glow" },
+  { "name": "subscriber",     "title": "VPN активен",         "icon": "a glossy 3D dark-blue shield with a bright checkmark and a small glowing connected dot" },
+  { "name": "buy",            "title": "Купить VPN",          "icon": "a glossy 3D dark-blue shield merged with an upward rocket, energetic" },
+  { "name": "trial",          "title": "7 дней бесплатно",    "icon": "a glossy 3D dark-blue gift box with a glowing ribbon" },
+  { "name": "devices",        "title": "Мои устройства",      "icon": "a glossy 3D trio of dark-blue devices (phone, laptop, tablet) linked by glowing lines" },
+  { "name": "settings",       "title": "Мой тариф",           "icon": "a glossy 3D dark-blue gear with slider controls" },
+  { "name": "promo",          "title": "Промокод",            "icon": "a glossy 3D dark-blue discount ticket tag with a percent sign, glowing" },
+  { "name": "payment",        "title": "Оплата",              "icon": "a glossy 3D dark-blue bank card with a small glowing lock" },
+  { "name": "activating",     "title": "Активируем VPN",      "icon": "a glossy 3D dark-blue circular loading spinner ring, mid-motion" },
+  { "name": "success",        "title": "Готово",              "icon": "a glossy 3D dark-blue big checkmark inside a glowing ring, subtle sparks" },
+  { "name": "help",           "title": "Помощь",              "icon": "a glossy 3D dark-blue question mark inside a glowing speech bubble" },
+  { "name": "invite",         "title": "Пригласи друга",      "icon": "two glossy 3D dark-blue person silhouettes with a glowing plus between them" },
+  { "name": "expired",        "title": "Подписка истекла",    "icon": "a glossy 3D dimmed dark-blue cracked shield with faded glow" },
+  { "name": "expiry",         "title": "Подписка кончается",  "icon": "a glossy 3D dark-blue hourglass with a thin glowing ring" },
+  { "name": "device_new",     "title": "Новое устройство",    "icon": "a glossy 3D dark-blue phone with a small glowing plus badge and a connection ping" },
+  { "name": "device_blocked", "title": "Лимит устройств",     "icon": "a glossy 3D dark-blue device with a small lock badge, dimmed glow" }
+]
