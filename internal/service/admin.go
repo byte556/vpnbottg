@@ -128,16 +128,6 @@ func (s *AdminService) SearchUser(ctx context.Context, query string) (*models.Us
 	return s.users.SearchUserByUsername(ctx, username)
 }
 
-// GetAllUserIDs возвращает все tg_id из таблицы users.
-func (s *AdminService) GetAllUserIDs(ctx context.Context) ([]int64, error) {
-	return s.users.GetAllUserIDs(ctx)
-}
-
-// GetStats возвращает агрегированную статистику.
-func (s *AdminService) GetStats() repository.Stats {
-	return s.stats
-}
-
 // BroadcastAll рассылает text всем пользователям через send.
 // Возвращает (sent, errors). Встроенный rate limit: пауза 1 сек каждые 25 сообщений.
 func (s *AdminService) BroadcastAll(ctx context.Context, text string, send func(int64, string) error) (sent, errs int) {

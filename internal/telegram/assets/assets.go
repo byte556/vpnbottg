@@ -32,12 +32,6 @@ var cardFiles = map[string]string{
 	"expired":    "expired.png",    // подписка истекла
 }
 
-// HasCard сообщает, есть ли карточка для экрана.
-func HasCard(name string) bool {
-	_, ok := cardFiles[name]
-	return ok
-}
-
 // Photo возвращает *tele.Photo карточки экрана с заданной подписью,
 // либо nil, если карточки нет (тогда вызывающий откатывается на текст).
 func Photo(name, caption string) *tele.Photo {

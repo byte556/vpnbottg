@@ -3,7 +3,6 @@ package yookassa
 import (
 	"encoding/json"
 	"fmt"
-	"io"
 )
 
 type Notification struct {
@@ -19,13 +18,4 @@ func ParseNotification(body []byte) (*Notification, error) {
 		return nil, fmt.Errorf("parse notification: %w", err)
 	}
 	return &n, nil
-}
-
-// ParseNotificationFromReader читает тело и парсит notification.
-func ParseNotificationFromReader(r io.Reader) (*Notification, error) {
-	body, err := io.ReadAll(r)
-	if err != nil {
-		return nil, fmt.Errorf("read body: %w", err)
-	}
-	return ParseNotification(body)
 }

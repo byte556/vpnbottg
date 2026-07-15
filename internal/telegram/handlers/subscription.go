@@ -140,10 +140,6 @@ func MyConfig(subSvc *service.Subscription) tele.HandlerFunc {
 	}
 }
 
-func StatusSub(subSvc *service.Subscription) tele.HandlerFunc {
-	return MyConfig(subSvc)
-}
-
 // Settings — экран-статус «⚙️ Мой тариф»: текущий срок, устройства, трафик.
 // Управление вынесено на кнопку «Продлить / изменить тариф» → OpenRenew.
 func Settings(subSvc *service.Subscription) tele.HandlerFunc {

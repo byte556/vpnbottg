@@ -226,35 +226,6 @@ func (s *Subscription) DeleteDevice(ctx context.Context, userID int64, index int
 	return nil
 }
 
-// ExtendExpiry добавляет дни к активной подписке без изменения трафика.
-// Используется для реферального вознаграждения.
-func (s *Subscription) ExtendExpiry(ctx context.Context, userID int64, addDays int) error {
-	log := logger.L().With().Int64("user_id", userID).Int("add_days", addDays).Logger()
-
-	sub, err := s.subs.GetActiveSubscription(ctx, userID)
-	if err != nil {
-		if errors.Is(err, repository.ErrNotFound) {
-			return nil // нет активной подписки — пропускаем, не ошибка
-		}
-		return fmt.Errorf("extendExpiry: %w", err)
-	}
-
-	newExpiry := time.Unix(sub.ExpiresAt, 0).AddDate(0, 0, addDays)
-
-	// Безлимит трафика
-	if err := s.panel.UpdateClientByEmail(ctx, sub.XUIEmailDirect, 0, newExpiry); err != nil {
-		log.Error().Err(err).Msg("extendExpiry: panel failed")
-		return fmt.Errorf("extendExpiry: %w", err)
-	}
-	if err := s.subs.UpdateSubscriptionExpiry(ctx, sub.ID, newExpiry.Unix()); err != nil {
-		return fmt.Errorf("extendExpiry: db: %w", err)
-	}
-
-	_ = s.audit.Log(ctx, &userID, "subscription_extended", fmt.Sprintf(`{"sub_id":%d,"add_days":%d}`, sub.ID, addDays))
-	log.Info().Int64("sub_id", sub.ID).Msg("extendExpiry: ok")
-	return nil
-}
-
 // GetTrafficUsedGB возвращает использованный трафик в ГБ.
 // Возвращает 0 без ошибки если подписки нет или XUI недоступен.
 func (s *Subscription) GetTrafficUsedGB(ctx context.Context, userID int64) float64 {

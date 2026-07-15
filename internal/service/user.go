@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 
-	"vpnbottg/internal/config"
 	"vpnbottg/internal/infra/logger"
 	"vpnbottg/internal/models"
 	"vpnbottg/internal/repository"
@@ -51,17 +50,8 @@ func (s *User) GetUser(ctx context.Context, tgID int64) (*models.User, error) {
 	return u, nil
 }
 
-func (s *User) IsAdmin(userID int64) bool {
-	adminID := config.Cfg.Bot.AdminID
-	return adminID != 0 && userID == adminID
-}
-
 func (s *User) GetBalance(ctx context.Context, userID int64) (int64, error) {
 	return s.users.GetBalance(ctx, userID)
-}
-
-func (s *User) AddBalance(ctx context.Context, userID int64, amount int64) error {
-	return s.users.AddBalance(ctx, userID, amount)
 }
 
 func (s *User) DeductBalance(ctx context.Context, userID int64, amount int64) (int64, error) {

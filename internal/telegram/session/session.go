@@ -106,19 +106,6 @@ func (s *ConstructorState) planPrice(devices, months int) float64 {
 	return base * float64(months) * discount
 }
 
-// UpgradePrice — доплата за добавленные устройства на оставшиеся дни (без продления).
-// В режиме новой покупки — 0.
-func (s *ConstructorState) UpgradePrice() int {
-	if !s.manage {
-		return 0
-	}
-	cfg := config.Cfg.Bot.Constructor
-	if extra := s.devices - s.baseDevices; extra > 0 && s.daysLeft > 0 {
-		return int(math.Round(float64(extra) * float64(cfg.PricePerDevice) * float64(s.daysLeft) / 30.0))
-	}
-	return 0
-}
-
 // RenewPrice — цена продления срока по целевому числу устройств (без доплаты за апгрейд).
 func (s *ConstructorState) RenewPrice() int {
 	if s.months <= 0 {
