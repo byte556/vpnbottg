@@ -105,17 +105,25 @@
   .icon-btn svg{width:19px;height:19px}
   .icon-btn.copied{color:var(--ok); border-color:var(--ok)}
 
-  /* ── QR-код подписки ── */
-  .qr-wrap{margin-top:16px; display:flex; flex-direction:column; align-items:center; gap:12px}
-  .qr-box{background:#fff; padding:14px; border-radius:16px; border:1px solid var(--line);
+  /* ── QR-код подписки (всегда сверху) ── */
+  .qr-wrap{margin:0 0 6px; display:flex; flex-direction:column; align-items:center; gap:12px}
+  .qr-box{background:#fff; padding:16px; border-radius:18px; border:1px solid var(--line);
           box-shadow:var(--shadow); line-height:0}
-  .qr-box svg{display:block; width:196px; height:196px}
+  .qr-box svg{display:block; width:212px; height:212px}
   .qr-cap{font-size:12.5px; color:var(--muted); text-align:center; line-height:1.5; margin:0}
-  .qr-toggle{display:inline-flex; align-items:center; gap:7px; margin-top:2px; padding:9px 15px;
-             font-size:13.5px; font-weight:600; color:var(--text); cursor:pointer;
-             background:var(--card-2); border:1px solid var(--line); border-radius:12px; transition:.12s ease}
-  .qr-toggle:hover{border-color:var(--brand-1); color:var(--brand-1)}
-  .qr-toggle svg{width:17px;height:17px}
+
+  /* ── инструкция ── */
+  .steps{margin-top:20px}
+  .steps ol{margin:0; padding:0; list-style:none; counter-reset:step}
+  .steps li{position:relative; padding:0 0 14px 40px; color:var(--text); font-size:14px; line-height:1.5}
+  .steps li:last-child{padding-bottom:0}
+  .steps li::before{counter-increment:step; content:counter(step);
+    position:absolute; left:0; top:-1px; width:26px; height:26px; border-radius:50%;
+    display:flex; align-items:center; justify-content:center; font-size:13px; font-weight:700; color:#fff;
+    background:linear-gradient(135deg,var(--brand-1),var(--brand-2))}
+  .steps li:not(:last-child)::after{content:''; position:absolute; left:13px; top:28px; bottom:6px;
+    width:2px; background:var(--line)}
+  .steps a{color:var(--brand-1); text-decoration:none; font-weight:500}
 
   /* ── кнопки импорта ── */
   .cta{
@@ -191,7 +199,30 @@
 
     <!-- ПОДКЛЮЧЕНИЕ -->
     <div class="card" id="viewConnect" hidden>
-      <p class="sec-title">Ваша ссылка-подписка</p>
+      <!-- QR всегда сверху: генерируется офлайн в браузере -->
+      <div class="qr-wrap" id="qrWrap">
+        <div class="qr-box" id="qrBox" aria-label="QR-код ссылки-подписки"></div>
+        <p class="qr-cap">Отсканируйте в приложении VPN или камерой другого телефона</p>
+      </div>
+
+      <!-- ПРАВЬ ТУТ: главная кнопка импорта (Happ — рекомендуемое приложение) -->
+      <a class="cta" id="ctaHapp" href="#">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
+        Подключить в Happ
+      </a>
+
+      <!-- инструкция -->
+      <div class="steps">
+        <p class="sec-title">Как подключить</p>
+        <ol>
+          <li>Установите приложение <a href="https://happ.su" target="_blank" rel="noopener">Happ</a> (или другой клиент ниже).</li>
+          <li>Нажмите <b>«Подключить в Happ»</b> — конфиг добавится сам. Либо отсканируйте QR-код сверху.</li>
+          <li>Откройте приложение и включите VPN. Готово.</li>
+        </ol>
+      </div>
+
+      <!-- ссылка-подписка -->
+      <p class="sec-title" style="margin-top:20px">Ссылка-подписка</p>
       <div class="link-row">
         <div class="link-box" id="subLink" title="">—</div>
         <button class="icon-btn" id="copyBtn" title="Скопировать" aria-label="Скопировать ссылку">
@@ -201,31 +232,14 @@
         </button>
       </div>
 
-      <!-- QR-код: раскрывается по кнопке, генерируется офлайн в браузере -->
-      <button class="qr-toggle" id="qrToggle" type="button" aria-expanded="false" aria-controls="qrWrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><path d="M14 14h3v3M20 14v.01M14 20h.01M17 20h4v-3"/></svg>
-        <span id="qrToggleText">Показать QR-код</span>
-      </button>
-      <div class="qr-wrap" id="qrWrap" hidden>
-        <div class="qr-box" id="qrBox" aria-label="QR-код ссылки-подписки"></div>
-        <p class="qr-cap">Отсканируйте камерой другого телефона, чтобы открыть эту подписку на нём.</p>
-      </div>
-
-      <!-- ПРАВЬ ТУТ: главная кнопка импорта (Happ — рекомендуемое приложение) -->
-      <a class="cta" id="ctaHapp" href="#">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-        Подключить в Happ
-      </a>
-
       <!-- прочие клиенты -->
+      <p class="sec-title" style="margin-top:20px">Другие приложения</p>
       <div class="apps" id="importApps">
         <a class="app" id="impV2raytun" href="#"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14"/></svg>v2RayTun</a>
         <a class="app" id="impStreisand" href="#"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14"/></svg>Streisand</a>
         <a class="app" id="impHiddify" href="#"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14"/></svg>Hiddify</a>
         <a class="app" id="impClash" href="#"><svg class="ic" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12m0 0l4-4m-4 4l-4-4M5 21h14"/></svg>Clash Meta</a>
       </div>
-
-      <p class="hint">Нет приложения? Установите <a href="https://happ.su" target="_blank" rel="noopener" style="color:var(--brand-1)">Happ</a> — и нажмите «Подключить в Happ». Конфиг добавится сам.</p>
     </div>
 
     <!-- НЕАКТИВНАЯ / НЕ НАЙДЕНА -->
@@ -369,31 +383,16 @@ var qrcode=function(){var t=function(t,r){var e=t,n=g[r],o=null,i=0,a=null,u=[],
     document.getElementById('impHiddify').href   = 'hiddify://import/' + subUrl;
     document.getElementById('impClash').href     = 'clash://install-config?url=' + enc + '&name=VexaVPN';
 
-    // ── QR-код ссылки-подписки (генерируется офлайн, по клику) ──
+    // ── QR-код ссылки-подписки (генерируется офлайн, сразу при загрузке) ──
     (function(){
-      var toggle = document.getElementById('qrToggle');
-      var wrap   = document.getElementById('qrWrap');
-      var box    = document.getElementById('qrBox');
-      var label  = document.getElementById('qrToggleText');
-      if(!toggle || !wrap || !box || typeof qrcode === 'undefined') return;
-      var built = false;
-      function build(){
-        if(built) return;
-        try{
-          var qr = qrcode(0, 'M');            // авто-версия, коррекция M
-          qr.addData(subUrl);
-          qr.make();
-          box.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
-          built = true;
-        }catch(e){ box.innerHTML = '<p class="qr-cap">Не удалось построить QR</p>'; }
-      }
-      toggle.addEventListener('click', function(){
-        var open = wrap.hidden;
-        if(open) build();
-        wrap.hidden = !open;
-        toggle.setAttribute('aria-expanded', String(open));
-        label.textContent = open ? 'Скрыть QR-код' : 'Показать QR-код';
-      });
+      var box = document.getElementById('qrBox');
+      if(!box || typeof qrcode === 'undefined') return;
+      try{
+        var qr = qrcode(0, 'M');            // авто-версия, коррекция M
+        qr.addData(subUrl);
+        qr.make();
+        box.innerHTML = qr.createSvgTag({ cellSize: 5, margin: 2, scalable: true });
+      }catch(e){ box.innerHTML = '<p class="qr-cap">Не удалось построить QR</p>'; }
     })();
 
     show('viewConnect');
