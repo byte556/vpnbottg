@@ -54,6 +54,21 @@ func (r *Reminder) Run(ctx context.Context) {
 	}
 }
 
+// expiryTextKey подбирает текст напоминания под число оставшихся дней.
+// Для 1/2/3 дней — отдельные формулировки; иначе — универсальный reminder.expiry.
+func expiryTextKey(daysLeft int) string {
+	switch daysLeft {
+	case 1:
+		return "reminder.expiry_1"
+	case 2:
+		return "reminder.expiry_2"
+	case 3:
+		return "reminder.expiry_3"
+	default:
+		return "reminder.expiry"
+	}
+}
+
 func (r *Reminder) check(ctx context.Context) {
 	log := logger.L().With().Str("service", "reminder").Logger()
 	now := time.Now()
@@ -67,7 +82,7 @@ func (r *Reminder) check(ctx context.Context) {
 	}
 	for _, sub := range expiring {
 		daysLeft := max(1, int(time.Until(time.Unix(sub.ExpiresAt, 0)).Hours()/24))
-		r.notify(sub.UserID, "", texts.T("reminder.expiry", map[string]any{"Days": daysLeft}), keyboard.RenewKeyboard())
+		r.notify(sub.UserID, "", texts.T(expiryTextKey(daysLeft), map[string]any{"Days": daysLeft}), keyboard.RenewKeyboard())
 		if err := r.subs.MarkReminded(ctx, sub.ID); err != nil {
 			log.Error().Err(err).Int64("sub_id", sub.ID).Msg("check: MarkReminded failed")
 		}
