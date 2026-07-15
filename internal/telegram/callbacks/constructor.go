@@ -11,10 +11,9 @@ import (
 	"vpnbottg/internal/telegram/session"
 	"vpnbottg/internal/telegram/texts"
 
-	tele "gopkg.in/telebot.v3"
 	yookassa "vpnbottg/internal/client/yookassa"
 
-	"github.com/rs/zerolog"
+	tele "gopkg.in/telebot.v3"
 )
 
 func DevicesDec(c tele.Context) error {
@@ -216,39 +215,12 @@ func CheckPayment(yk *service.PaymentService, sub *service.Subscription, user *s
 			if dbPayment, err := yk.GetPaymentByProviderID(ctx, payment.ID); err != nil {
 				log.Error().Err(err).Msg("CheckPayment: GetPaymentByProviderID for referral failed")
 			} else {
-				rewardReferrerTG(c, ctx, ref, user, c.Sender().ID, dbPayment.Amount, log)
+				handlers.RewardReferrer(ctx, c.Bot(), ref, user, c.Sender().ID, dbPayment.Amount)
 			}
 		}
 
 		return provision(c, ctx, payment.Metadata, sub)
 	}
-}
-
-// rewardReferrerTG начисляет реферреру кешбэк за оплату реферала и уведомляет его.
-// Используется в путях подтверждения, где есть tele.Context (ручная проверка оплаты).
-func rewardReferrerTG(c tele.Context, ctx context.Context, ref *service.ReferralService, user *service.User, refereeID, paymentRub int64, log zerolog.Logger) {
-	referrerID, rewardRub, err := ref.RewardBalance(ctx, refereeID, paymentRub)
-	if err != nil {
-		log.Error().Err(err).Msg("rewardReferrerTG: failed")
-		return
-	}
-	if referrerID == 0 {
-		return
-	}
-	refUser, _ := user.GetUser(ctx, refereeID)
-	name := "Друг"
-	if refUser != nil {
-		if refUser.Username != "" {
-			name = "@" + refUser.Username
-		} else if refUser.FirstName != "" {
-			name = refUser.FirstName
-		}
-	}
-	text := texts.T("referral.reward", map[string]any{"Name": name, "Amount": rewardRub})
-	if _, err := c.Bot().Send(&tele.User{ID: referrerID}, text, &tele.SendOptions{ParseMode: tele.ModeHTML}); err != nil {
-		log.Error().Err(err).Int64("referrer_id", referrerID).Msg("rewardReferrerTG: notify failed")
-	}
-	log.Info().Int64("referrer_id", referrerID).Int64("reward_rub", rewardRub).Msg("rewardReferrerTG: notified")
 }
 
 // provision диспетчеризует выдачу по типу платежа из метаданных.

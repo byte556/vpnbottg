@@ -16,7 +16,6 @@ import (
 	"vpnbottg/internal/repository/sqlite"
 	"vpnbottg/internal/service"
 	"vpnbottg/internal/telegram"
-	"vpnbottg/internal/telegram/assets"
 	"vpnbottg/internal/telegram/handlers"
 	"vpnbottg/internal/telegram/texts"
 
@@ -38,7 +37,11 @@ func main() {
 	if err != nil {
 		log.Fatal().Err(err).Msg("failed to open database")
 	}
-	defer db.Close()
+	defer func() {
+		if err := db.Close(); err != nil {
+			log.Error().Err(err).Msg("shutdown: db.Close failed")
+		}
+	}()
 
 	ykClient := yookassa.NewClient(
 		config.Cfg.YooKassa.ShopID,
@@ -74,14 +77,9 @@ func main() {
 	reminderSvc := service.NewReminderService(
 		db, panelClient,
 		func(userID int64, card, text string, markup *tele.ReplyMarkup) {
-			to := &tele.User{ID: userID}
-			// SendOptions первым — иначе telebot затирает ReplyMarkup (см. handlers.sendOptsFirst).
-			opts := &tele.SendOptions{ParseMode: tele.ModeHTML}
-			if photo := assets.Photo(card, text); photo != nil {
-				bot.Send(to, photo, opts, markup)
-				return
+			if err := handlers.PushCard(bot, userID, card, text, markup); err != nil {
+				log.Warn().Err(err).Int64("user_id", userID).Msg("reminder: push card failed")
 			}
-			bot.Send(to, text, opts, markup)
 		},
 	)
 	go reminderSvc.Run(ctx)

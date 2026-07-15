@@ -70,12 +70,7 @@ func circleNum(i int) string {
 }
 
 func ProvisionSuccess(c tele.Context, subURL string, subSvc *service.Subscription) error {
-	if err := screen(
-		c, "success",
-		texts.T("provision.success"),
-		keyboard.ProvisionSuccessKeyboard(),
-		&tele.SendOptions{ParseMode: tele.ModeHTML},
-	); err != nil {
+	if err := provisionSuccessScreen().Render(c); err != nil {
 		return err
 	}
 	return Menu(c, subSvc)

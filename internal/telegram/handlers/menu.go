@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"time"
 
 	"vpnbottg/internal/models"
 	"vpnbottg/internal/service"
@@ -26,12 +25,5 @@ func GuestMenu(c tele.Context) error {
 }
 
 func SubscriberMenu(c tele.Context, sub *models.Subscription) error {
-	daysLeft := max(0, int(time.Until(time.Unix(sub.ExpiresAt, 0)).Hours()/24))
-	return screen(
-		c, "subscriber",
-		texts.T("menu.subscriber.text", map[string]any{
-			"DaysLeft": daysLeft,
-		}),
-		keyboard.SubscriberMenu(),
-	)
+	return subscriberMenuScreen(sub).Render(c)
 }

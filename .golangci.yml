@@ -32,3 +32,9 @@ formatters:
   enable:
     - gofumpt
     - goimports
+  settings:
+    goimports:
+      # Локальные импорты проекта — отдельной группой (иначе goimports путает
+      # их со stdlib и ломает группировку при --fix).
+      local-prefixes:
+        - vpnbottg

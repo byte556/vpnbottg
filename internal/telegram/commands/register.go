@@ -172,7 +172,7 @@ func handleBroadcast(c tele.Context, ctx context.Context, bot *tele.Bot, adminSv
 			_, err := bot.Send(&tele.User{ID: id}, msg)
 			return err
 		})
-		bot.Send(&tele.User{ID: adminID}, texts.T("admin.broadcast.done", map[string]any{
+		_, _ = bot.Send(&tele.User{ID: adminID}, texts.T("admin.broadcast.done", map[string]any{
 			"Sent":   sent,
 			"Errors": errs,
 		}))
