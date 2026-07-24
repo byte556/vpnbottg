@@ -20,8 +20,9 @@ func NewBot() (*tele.Bot, error) {
 	})
 }
 
-func Run(bot *tele.Bot, payment *service.PaymentService, sub *service.Subscription, user *service.User, ref *service.ReferralService, stats repository.Stats, adminSvc *service.AdminService, promo *service.PromoService) {
+func Run(bot *tele.Bot, payment *service.PaymentService, sub *service.Subscription, user *service.User, ref *service.ReferralService, stats repository.Stats, adminSvc *service.AdminService, promo *service.PromoService, nav repository.Nav) {
 	bot.Use(middleware.Dedup)
+	bot.Use(middleware.TrackNav(nav))
 	callbacks.Register(bot, payment, sub, user, ref, stats, promo)
 	commands.Register(bot, sub, ref, payment, user, adminSvc, promo)
 	bot.Start()

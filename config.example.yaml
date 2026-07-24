@@ -1,7 +1,7 @@
 bot:
   token: "YOUR_BOT_TOKEN"
   admin_id: 0           # твой Telegram user ID
-  support: "@support"   # username поддержки
+  support: "@example"   # username поддержки
   referral_reward_pct: 50  # % от оплаты реферала → баланс реферрера
   constructor:
     price_base: 199          # ₽/мес за 1 устройство (базовая цена)

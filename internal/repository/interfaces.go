@@ -57,6 +57,11 @@ type Audit interface {
 	Log(ctx context.Context, userID *int64, action, payload string) error
 }
 
+// Nav — трекинг навигации по экранам бота (воронка «докуда дошёл пользователь»).
+type Nav interface {
+	TrackNav(ctx context.Context, userID int64, screen string) error
+}
+
 // ErrPromoLimitReached — у промокода исчерпан лимит активаций (used_count >= max_uses) или он неактивен.
 // ErrPromoAlreadyUsed — пользователь уже активировал этот промокод.
 var (

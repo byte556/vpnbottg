@@ -47,6 +47,27 @@ jobs:
             systemctl restart vpnbot
             systemctl status vpnbot --no-pager
 
+      # Тестовое окружение (/opt/vpnbot-test): обновляем бинарь до актуальной
+      # версии, но НЕ рестартим — тест-бот запускается вручную (cd /opt/vpnbot-test
+      # && ./run.sh). Его config.yaml и .env.test живут только на сервере и не
+      # трогаются. Перезапись бинаря безопасна даже если процесс запущен: Linux
+      # держит старый inode до завершения, новая версия подхватится при след. старте.
+      - name: Sync binary to test env
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          port: ${{ secrets.VPS_PORT }}
+          script: |
+            if [ -d /opt/vpnbot-test ]; then
+              cp /opt/vpnbot/vpnbot /opt/vpnbot-test/vpnbot
+              chmod +x /opt/vpnbot-test/vpnbot
+              echo "test binary synced: $(ls -la /opt/vpnbot-test/vpnbot)"
+            else
+              echo "no /opt/vpnbot-test — skipping"
+            fi
+
       - name: Deploy subscription page
         uses: appleboy/scp-action@v0.1.7
         with:

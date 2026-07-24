@@ -106,7 +106,7 @@ func main() {
 
 	// Бот в горутине — останавливается через bot.Stop().
 	handlers.Init(userSvc)
-	go telegram.Run(bot, paym, subSvc, userSvc, refSvc, db, adminSvc, promoSvc)
+	go telegram.Run(bot, paym, subSvc, userSvc, refSvc, db, adminSvc, promoSvc, db)
 
 	// Ждём SIGTERM или SIGINT.
 	quit := make(chan os.Signal, 1)
