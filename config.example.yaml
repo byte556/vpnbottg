@@ -4,7 +4,7 @@ bot:
   support: "@example"   # username поддержки
   referral_reward_pct: 50  # % от оплаты реферала → баланс реферрера
   constructor:
-    price_base: 199          # ₽/мес за 1 устройство (базовая цена)
+    price_base: 149          # ₽/мес за 1 устройство (базовая цена)
     price_per_device: 100    # ₽/мес за каждое дополнительное устройство
     devices_step: 1
     default_devices: 1
